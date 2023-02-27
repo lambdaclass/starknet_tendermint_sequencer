@@ -10,16 +10,21 @@ use cairo_vm::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tracing::info;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub id: String,
     pub transaction_type: TransactionType,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TransactionType {
-    FunctionExecution { program: Program, function: String },
+    FunctionExecution {
+        program: String,
+        function: String,
+        program_name: String,
+    },
 }
 
 impl Transaction {
@@ -46,11 +51,15 @@ impl TransactionType {
         let mut hasher = Sha256::new();
 
         match self {
-            TransactionType::FunctionExecution { program, function } => {
-                let program = program;
-                let mut vm = VirtualMachine::new(false);
+            TransactionType::FunctionExecution {
+                program: program_str,
+                function,
+                program_name,
+            } => {
+                let program = Program::from_reader(program_str.as_bytes(), None)?;
+                let mut vm = VirtualMachine::new(true);
 
-                let mut cairo_runner = CairoRunner::new(program, "all", false)?;
+                let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
 
                 let mut hint_processor = BuiltinHintProcessor::new_empty();
 
@@ -73,7 +82,12 @@ impl TransactionType {
                     &mut vm,
                     &mut hint_processor,
                 )?;
+                cairo_runner.relocate(&mut vm).unwrap();
 
+                info!(
+                    "Executing and getting trace for program {}, function {}",
+                    program_str, function
+                );
                 let trace = cairo_runner
                     .relocated_trace
                     .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))?;

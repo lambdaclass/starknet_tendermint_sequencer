@@ -70,8 +70,12 @@ impl Application for CairoApp {
             TransactionType::FunctionExecution {
                 program: _,
                 function,
+                program_name,
             } => {
-                info!("Received execution transaction. Function: {}", function);
+                info!(
+                    "Received execution transaction. Function: {}, program {}",
+                    function, program_name
+                );
             }
         }
 
@@ -120,6 +124,7 @@ impl Application for CairoApp {
                     TransactionType::FunctionExecution {
                         program: _program,
                         function,
+                        program_name: _,
                     } => {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
@@ -157,7 +162,7 @@ impl Application for CairoApp {
     /// Applies validator set updates based on staking transactions included in the block.
     /// For details about validator set update semantics see:
     /// https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#endblock
-    fn end_block(&self, _request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
+    fn end_block(&self, request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
         abci::ResponseEndBlock {
             ..Default::default()
         }
