@@ -38,7 +38,7 @@ reset: bin/tendermint
 
 # run the Cairo tendermint application
 abci:
-	cargo run --release 
+	cargo run --release  --bin abci
 
 # run tests on release mode (default VM backend) to ensure there is no extra printing to stdout
 test:

@@ -1,3 +1,11 @@
+use cairo_vm::{
+    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
+        BuiltinHintProcessor, HintFunc,
+    },
+    types::program::Program,
+    vm::{runners::cairo_runner::CairoRunner, vm_core::VirtualMachine},
+};
+use lib::{Transaction, TransactionType};
 use tendermint_abci::Application;
 use tendermint_proto::abci;
 
@@ -57,7 +65,18 @@ impl Application for CairoApp {
 
     /// This ABCI hook validates an incoming transaction before inserting it in the
     /// mempool and relaying it to other nodes.
-    fn check_tx(&self, _request: abci::RequestCheckTx) -> abci::ResponseCheckTx {
+    fn check_tx(&self, request: abci::RequestCheckTx) -> abci::ResponseCheckTx {
+        let tx: Transaction = bincode::deserialize(&request.tx).unwrap();
+
+        match tx.transaction_type {
+            TransactionType::FunctionExecution {
+                program: _,
+                function,
+            } => {
+                info!("Received execution transaction. Function: {}", function);
+            }
+        }
+
         abci::ResponseCheckTx {
             ..Default::default()
         }
@@ -73,9 +92,62 @@ impl Application for CairoApp {
     /// This ABCI hook validates a transaction and applies it to the application state,
     /// for example storing the program verifying keys upon a valid deployment.
     /// Here is also where transactions are indexed for querying the blockchain.
-    fn deliver_tx(&self, _request: abci::RequestDeliverTx) -> abci::ResponseDeliverTx {
-        abci::ResponseDeliverTx {
-            ..Default::default()
+    fn deliver_tx(&self, request: abci::RequestDeliverTx) -> abci::ResponseDeliverTx {
+        let tx: Transaction = bincode::deserialize(&request.tx).unwrap();
+
+        // Validation consists of getting the hash and checking whether it is equal
+        // to the tx id. The hash executes the program and hashes the trace.
+
+        let tx_hash = tx.transaction_type.compute_and_hash().map(|x| x == tx.id);
+
+        match tx_hash {
+            Ok(true) => {
+                // prepare this transaction to be queried by app.tx_id
+                let index_event = abci::Event {
+                    r#type: "app".to_string(),
+                    attributes: vec![abci::EventAttribute {
+                        key: "tx_id".to_string().into_bytes(),
+                        value: tx.id.to_string().into_bytes(),
+                        index: true,
+                    }],
+                };
+                let mut events = vec![index_event];
+
+                match tx.transaction_type {
+                    TransactionType::FunctionExecution {
+                        program: _program,
+                        function,
+                    } => {
+                        let function_event = abci::Event {
+                            r#type: "function".to_string(),
+                            attributes: vec![abci::EventAttribute {
+                                key: "function".to_string().into_bytes(),
+                                value: function.into_bytes(),
+                                index: true,
+                            }],
+                        };
+                        events.push(function_event);
+                    }
+                }
+
+                abci::ResponseDeliverTx {
+                    events,
+                    data: tx.id.into_bytes(),
+                    ..Default::default()
+                }
+            }
+            Ok(false) => abci::ResponseDeliverTx {
+                code: 1,
+                log: format!("Error delivering transaction. Integrity check failed."),
+                info: format!("Error delivering transaction. Integrity check failed."),
+                ..Default::default()
+            },
+            Err(e) => abci::ResponseDeliverTx {
+                code: 1,
+                log: format!("Error delivering transaction: {e}"),
+                info: format!("Error delivering transaction: {e}"),
+                ..Default::default()
+            },
         }
     }
 
@@ -97,11 +169,6 @@ impl Application for CairoApp {
     fn commit(&self) -> abci::ResponseCommit {
         // the app hash is intended to capture the state of the application that's not contained directly
         // in the blockchain transactions (as tendermint already accounts for that with other hashes).
-        // we could do something in the RecordStore and ProgramStore to track state changes there and
-        // calculate a hash based on that, if we expected some aspect of that data not to be completely
-        // determined by the list of committed transactions (for example if we expected different versions
-        // of the app with differing logic to coexist). At this stage it seems overkill to add support for that
-        // scenario so we just to use a fixed hash. See below for more discussion on the use of app hash:
         // https://github.com/tendermint/tendermint/issues/1179
         // https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#query-proofs
         let app_hash = vec![];
