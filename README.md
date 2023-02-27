@@ -23,6 +23,8 @@ Run the ABCI sequencer application:
 make abci
 ```
 
+In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
+
 ## Reference links
 * [Starknet sequencer](https://www.starknet.io/de/posts/engineering/starknets-new-sequencer#:~:text=What%20does%20the%20sequencer%20do%3F)
 * [Papyrus Starknet full node](https://medium.com/starkware/papyrus-an-open-source-starknet-full-node-396f7cd90202)
