@@ -1,11 +1,7 @@
-use cairo_vm::{
-    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::{
-        BuiltinHintProcessor, HintFunc,
-    },
-    types::program::Program,
-    vm::{runners::cairo_runner::CairoRunner, vm_core::VirtualMachine},
-};
+use std::sync::{Arc, Mutex};
+
 use lib::{Transaction, TransactionType};
+use sha2::{Digest, Sha256};
 use tendermint_abci::Application;
 use tendermint_proto::abci;
 
@@ -16,7 +12,9 @@ use tracing::{debug, info};
 /// a channel for the parts that require knowledge of the application state and the Cairo details.
 /// For reference see https://docs.tendermint.com/v0.34/introduction/what-is-tendermint.html#abci-overview
 #[derive(Debug, Clone)]
-pub struct CairoApp {}
+pub struct CairoApp {
+    hasher: Arc<Mutex<Sha256>>,
+}
 
 impl Application for CairoApp {
     /// This hook is called once upon genesis. It's used to load a default set of records which
@@ -102,6 +100,11 @@ impl Application for CairoApp {
 
         match tx_hash {
             Ok(true) => {
+                let _ = self
+                    .hasher
+                    .lock()
+                    .map(|mut hash| hash.update(tx.id.clone()));
+
                 // prepare this transaction to be queried by app.tx_id
                 let index_event = abci::Event {
                     r#type: "app".to_string(),
@@ -138,8 +141,8 @@ impl Application for CairoApp {
             }
             Ok(false) => abci::ResponseDeliverTx {
                 code: 1,
-                log: format!("Error delivering transaction. Integrity check failed."),
-                info: format!("Error delivering transaction. Integrity check failed."),
+                log: "Error delivering transaction. Integrity check failed.".to_string(),
+                info: "Error delivering transaction. Integrity check failed.".to_string(),
                 ..Default::default()
             },
             Err(e) => abci::ResponseDeliverTx {
@@ -171,14 +174,25 @@ impl Application for CairoApp {
         // in the blockchain transactions (as tendermint already accounts for that with other hashes).
         // https://github.com/tendermint/tendermint/issues/1179
         // https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#query-proofs
-        let app_hash = vec![];
+
+        let app_hash = self
+            .hasher
+            .lock()
+            .map(|hasher| hasher.clone().finalize().as_slice().to_vec());
 
         let height = HeightFile::increment();
 
         info!("Committing height {}", height);
-        abci::ResponseCommit {
-            data: app_hash,
-            retain_height: 0,
+        match app_hash {
+            Ok(hash) => abci::ResponseCommit {
+                data: hash,
+                retain_height: 0,
+            },
+            // error should be handled here
+            _ => abci::ResponseCommit {
+                data: vec![],
+                retain_height: 0,
+            },
         }
     }
 }
@@ -186,7 +200,9 @@ impl Application for CairoApp {
 impl CairoApp {
     /// Constructor.
     pub fn new() -> Self {
-        Self {}
+        Self {
+            hasher: Arc::new(Mutex::new(Sha256::new())),
+        }
     }
 }
 
@@ -219,5 +235,5 @@ impl HeightFile {
 // just covering a few special cases here. lower level test are done in record store and program store, higher level in integration tests.
 #[cfg(test)]
 mod tests {
-    fn test_hook() {}
+    fn _test_hook() {}
 }

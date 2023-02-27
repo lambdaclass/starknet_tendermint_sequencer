@@ -35,6 +35,7 @@ tendermint_config:
 # remove the blockchain data
 reset: bin/tendermint
 	bin/tendermint unsafe_reset_all
+	rm -rf abci.height
 
 # run the Cairo tendermint application
 abci:

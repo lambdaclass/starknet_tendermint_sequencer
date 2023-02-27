@@ -46,7 +46,7 @@ async fn main() {
 
     let (exit_code, output) = match run(cli.path, &cli.function_name, &cli.url).await {
         Ok(output) => (0, output),
-        Err(err) => (1, format!("error: {}", err.to_string())),
+        Err(err) => (1, format!("error: {err}")),
     };
 
     println!("{output:#}");
@@ -57,7 +57,7 @@ async fn run(path: PathBuf, function_name: &str, sequencer_url: &str) -> Result<
     let program = Program::from_file(&path, None)?;
 
     let transaction_type = TransactionType::FunctionExecution {
-        program: program,
+        program,
         function: function_name.to_owned(),
     };
     let transaction = Transaction::with_type(transaction_type)?;

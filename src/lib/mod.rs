@@ -50,13 +50,13 @@ impl TransactionType {
                 let program = program;
                 let mut vm = VirtualMachine::new(false);
 
-                let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
+                let mut cairo_runner = CairoRunner::new(program, "all", false)?;
 
                 let mut hint_processor = BuiltinHintProcessor::new_empty();
 
                 let entrypoint = program
                     .identifiers
-                    .get(&format!("__main__.{}", function))
+                    .get(&format!("__main__.{function}"))
                     .and_then(|x| x.pc)
                     .context("Error geting entrypoint function")?;
 
