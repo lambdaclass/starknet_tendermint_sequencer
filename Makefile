@@ -85,3 +85,9 @@ localnet_config:
 	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26$(NODE)57"#g' $(TENDERMINT_HOME)/config/config.toml
 	sed -i.bak 's#proxy_app = "tcp://127.0.0.1:26658"#proxy_app = "tcp://127.0.0.1:26$(NODE)58"#g' $(TENDERMINT_HOME)/config/config.toml
 .PHONY: localnet_config
+
+
+localnet_reset:
+	bin/tendermint unsafe_reset_all 
+		rm -rf localnet/node*/abci/abci.height; 
+.PHONY: localnet_reset
