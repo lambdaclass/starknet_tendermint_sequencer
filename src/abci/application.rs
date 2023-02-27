@@ -100,21 +100,21 @@ impl Application for CairoApp {
         // Validation consists of getting the hash and checking whether it is equal
         // to the tx id. The hash executes the program and hashes the trace.
 
-        let tx_hash = tx.transaction_type.compute_and_hash().map(|x| x == tx.id);
+        let tx_hash = tx.transaction_type.compute_and_hash().map(|x| x == tx.transaction_hash);
 
         match tx_hash {
             Ok(true) => {
                 let _ = self
                     .hasher
                     .lock()
-                    .map(|mut hash| hash.update(tx.id.clone()));
+                    .map(|mut hash| hash.update(tx.transaction_hash.clone()));
 
                 // prepare this transaction to be queried by app.tx_id
                 let index_event = abci::Event {
                     r#type: "app".to_string(),
                     attributes: vec![abci::EventAttribute {
                         key: "tx_id".to_string().into_bytes(),
-                        value: tx.id.to_string().into_bytes(),
+                        value: tx.transaction_hash.to_string().into_bytes(),
                         index: true,
                     }],
                 };
@@ -140,7 +140,7 @@ impl Application for CairoApp {
 
                 abci::ResponseDeliverTx {
                     events,
-                    data: tx.id.into_bytes(),
+                    data: tx.transaction_hash.into_bytes(),
                     ..Default::default()
                 }
             }
@@ -162,7 +162,7 @@ impl Application for CairoApp {
     /// Applies validator set updates based on staking transactions included in the block.
     /// For details about validator set update semantics see:
     /// https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#endblock
-    fn end_block(&self, request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
+    fn end_block(&self, _request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
         abci::ResponseEndBlock {
             ..Default::default()
         }

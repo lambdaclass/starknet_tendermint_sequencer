@@ -1,4 +1,4 @@
-.PHONY: tendermint reset abci tendermint_config tendermint_install
+.PHONY: tendermint reset abci cli tendermint_config tendermint_install
 
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 
@@ -10,6 +10,11 @@ endif
 
 TMINT_VERSION=0.34.22
 TENDERMINT_HOME=~/.tendermint/
+
+# Build the client program and put it in bin/aleo
+cli:
+	mkdir -p bin && cargo build --release && cp target/release/cli bin/cli
+
 
 # Installs tendermint for current OS and puts it in bin/
 bin/tendermint:
@@ -45,3 +50,38 @@ abci:
 test:
 	RUST_BACKTRACE=full cargo test --release -- --nocapture --test-threads=4
 
+
+# Initialize the tendermint configuration for a localnet of the given amount of validators
+localnet: VALIDATORS:=4
+localnet: ADDRESS:=127.0.0.1
+localnet: HOMEDIR:=localnet
+localnet: bin/tendermint cli
+	rm -rf $(HOMEDIR)/
+	bin/tendermint testnet --v $(VALIDATORS) --o ./$(HOMEDIR) --starting-ip-address $(ADDRESS)
+	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
+        make localnet_config TENDERMINT_HOME=$(HOMEDIR)/node$$n NODE=$$n VALIDATORS=$(VALIDATORS); \
+		mkdir $(HOMEDIR)/node$$n/abci ; \
+	done
+.PHONY: localnet
+# cargo run --bin genesis --release -- $(HOMEDIR)/*
+
+# run both the abci application and the tendermint node
+# assumes config for each node has been done previously
+localnet_start: NODE:=0
+localnet_start: HOMEDIR:=localnet
+localnet_start:
+	bin/tendermint node --home ./$(HOMEDIR)/node$(NODE) --consensus.create_empty_blocks_interval="90s" &
+	cd ./$(HOMEDIR)/node$(NODE)/abci; cargo run --release --bin abci -- --port 26$(NODE)58
+.PHONY: localnet_start
+
+
+localnet_config:
+	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(TENDERMINT_HOME)/config/config.toml
+	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
+	    eval "sed -i.bak 's/127.0.0.$$(($${n}+1)):26656/127.0.0.1:26$${n}56/g' $(TENDERMINT_HOME)/config/config.toml" ;\
+	done
+	sed -i.bak 's#laddr = "tcp://0.0.0.0:26656"#laddr = "tcp://0.0.0.0:26$(NODE)56"#g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26$(NODE)57"#g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's#proxy_app = "tcp://127.0.0.1:26658"#proxy_app = "tcp://127.0.0.1:26$(NODE)58"#g' $(TENDERMINT_HOME)/config/config.toml
+.PHONY: localnet_config

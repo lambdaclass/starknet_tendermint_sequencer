@@ -11,10 +11,12 @@ use cairo_vm::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::info;
+use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub id: String,
+    pub transaction_hash: String, // this acts 
     pub transaction_type: TransactionType,
 }
 
@@ -30,15 +32,16 @@ pub enum TransactionType {
 impl Transaction {
     pub fn with_type(transaction_type: TransactionType) -> Result<Transaction> {
         Ok(Transaction {
-            id: transaction_type.compute_and_hash()?,
+            transaction_hash: transaction_type.compute_and_hash()?,
             transaction_type,
+            id: Uuid::new_v4().to_string(),
         })
     }
 
     /// Verify that the transaction id is consistent with its contents, by checking its sha256 hash.
     pub fn verify(&self) -> Result<()> {
         ensure!(
-            self.id == self.transaction_type.compute_and_hash()?,
+            self.transaction_hash == self.transaction_type.compute_and_hash()?,
             "Corrupted transaction: Inconsistent transaction id"
         );
 
@@ -54,7 +57,7 @@ impl TransactionType {
             TransactionType::FunctionExecution {
                 program: program_str,
                 function,
-                program_name,
+                program_name: _,
             } => {
                 let program = Program::from_reader(program_str.as_bytes(), None)?;
                 let mut vm = VirtualMachine::new(true);

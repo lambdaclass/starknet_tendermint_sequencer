@@ -13,3 +13,4 @@ hello/build
 bin/
 abci.*
 testnet/
+localnet/
