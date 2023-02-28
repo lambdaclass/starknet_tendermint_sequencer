@@ -100,7 +100,10 @@ impl Application for CairoApp {
         // Validation consists of getting the hash and checking whether it is equal
         // to the tx id. The hash executes the program and hashes the trace.
 
-        let tx_hash = tx.transaction_type.compute_and_hash().map(|x| x == tx.transaction_hash);
+        let tx_hash = tx
+            .transaction_type
+            .compute_and_hash()
+            .map(|x| x == tx.transaction_hash);
 
         match tx_hash {
             Ok(true) => {

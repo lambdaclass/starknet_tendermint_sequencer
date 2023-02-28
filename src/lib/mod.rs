@@ -16,7 +16,7 @@ use uuid::Uuid;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub id: String,
-    pub transaction_hash: String, // this acts 
+    pub transaction_hash: String, // this acts
     pub transaction_type: TransactionType,
 }
 
@@ -87,10 +87,10 @@ impl TransactionType {
                 )?;
                 cairo_runner.relocate(&mut vm).unwrap();
 
-                info!(
-                    "Executing and getting trace for program {}, function {}",
-                    program_str, function
-                );
+                //info!(
+                //    "Executing and getting trace for program {}, function {}",
+                //    program_str, function
+                //);
                 let trace = cairo_runner
                     .relocated_trace
                     .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))?;

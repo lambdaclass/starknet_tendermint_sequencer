@@ -8,11 +8,9 @@
         "0x480680017fff8000",
         "0x1",
         "0x480680017fff8000",
-        "0xa",
+        "0x1f4",
         "0x1104800180018000",
-        "0x5",
-        "0x400680017fff7fff",
-        "0x90",
+        "0x3",
         "0x208b7fff7fff7ffe",
         "0x20780017fff7ffd",
         "0x5",
@@ -91,7 +89,7 @@
                 },
                 "hints": [],
                 "inst": {
-                    "end_col": 36,
+                    "end_col": 37,
                     "end_line": 3,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
@@ -114,7 +112,7 @@
                 },
                 "hints": [],
                 "inst": {
-                    "end_col": 37,
+                    "end_col": 38,
                     "end_line": 3,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
@@ -139,38 +137,40 @@
                 },
                 "hints": [],
                 "inst": {
-                    "end_col": 25,
-                    "end_line": 6,
+                    "end_col": 8,
+                    "end_line": 4,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 5,
-                    "start_line": 6
+                    "start_line": 4
                 }
             },
-            "10": {
+            "9": {
                 "accessible_scopes": [
                     "__main__",
-                    "__main__.main"
+                    "__main__.fib"
                 ],
                 "flow_tracking_data": {
                     "ap_tracking": {
-                        "group": 1,
+                        "group": 2,
                         "offset": 0
                     },
                     "reference_ids": {
-                        "__main__.main.result": 0
+                        "__main__.fib.first_element": 1,
+                        "__main__.fib.n": 3,
+                        "__main__.fib.second_element": 2
                     }
                 },
                 "hints": [],
                 "inst": {
-                    "end_col": 8,
-                    "end_line": 7,
+                    "end_col": 27,
+                    "end_line": 8,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 5,
-                    "start_line": 7
+                    "start_line": 8
                 }
             },
             "11": {
@@ -191,55 +191,28 @@
                 },
                 "hints": [],
                 "inst": {
-                    "end_col": 27,
-                    "end_line": 11,
-                    "input_file": {
-                        "filename": "programs/fibonacci.cairo"
-                    },
-                    "start_col": 5,
-                    "start_line": 11
-                }
-            },
-            "13": {
-                "accessible_scopes": [
-                    "__main__",
-                    "__main__.fib"
-                ],
-                "flow_tracking_data": {
-                    "ap_tracking": {
-                        "group": 2,
-                        "offset": 0
-                    },
-                    "reference_ids": {
-                        "__main__.fib.first_element": 1,
-                        "__main__.fib.n": 3,
-                        "__main__.fib.second_element": 2
-                    }
-                },
-                "hints": [],
-                "inst": {
                     "end_col": 39,
-                    "end_line": 10,
+                    "end_line": 7,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "parent_location": [
                         {
                             "end_col": 36,
-                            "end_line": 12,
+                            "end_line": 9,
                             "input_file": {
                                 "filename": "programs/fibonacci.cairo"
                             },
                             "start_col": 22,
-                            "start_line": 12
+                            "start_line": 9
                         },
                         "While expanding the reference 'second_element' in:"
                     ],
                     "start_col": 25,
-                    "start_line": 10
+                    "start_line": 7
                 }
             },
-            "14": {
+            "12": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -259,27 +232,27 @@
                 "hints": [],
                 "inst": {
                     "end_col": 39,
-                    "end_line": 10,
+                    "end_line": 7,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "parent_location": [
                         {
                             "end_col": 27,
-                            "end_line": 13,
+                            "end_line": 10,
                             "input_file": {
                                 "filename": "programs/fibonacci.cairo"
                             },
                             "start_col": 13,
-                            "start_line": 13
+                            "start_line": 10
                         },
                         "While expanding the reference 'second_element' in:"
                     ],
                     "start_col": 25,
-                    "start_line": 10
+                    "start_line": 7
                 }
             },
-            "15": {
+            "13": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -299,15 +272,15 @@
                 "hints": [],
                 "inst": {
                     "end_col": 30,
-                    "end_line": 13,
+                    "end_line": 10,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 5,
-                    "start_line": 13
+                    "start_line": 10
                 }
             },
-            "16": {
+            "14": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -326,15 +299,15 @@
                 "hints": [],
                 "inst": {
                     "end_col": 47,
-                    "end_line": 16,
+                    "end_line": 13,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 17,
-                    "start_line": 16
+                    "start_line": 13
                 }
             },
-            "17": {
+            "15": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -354,27 +327,27 @@
                 "hints": [],
                 "inst": {
                     "end_col": 39,
-                    "end_line": 10,
+                    "end_line": 7,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "parent_location": [
                         {
                             "end_col": 30,
-                            "end_line": 17,
+                            "end_line": 14,
                             "input_file": {
                                 "filename": "programs/fibonacci.cairo"
                             },
                             "start_col": 16,
-                            "start_line": 17
+                            "start_line": 14
                         },
                         "While expanding the reference 'second_element' in:"
                     ],
                     "start_col": 25,
-                    "start_line": 10
+                    "start_line": 7
                 }
             },
-            "18": {
+            "16": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -394,27 +367,27 @@
                 "hints": [],
                 "inst": {
                     "end_col": 14,
-                    "end_line": 16,
+                    "end_line": 13,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "parent_location": [
                         {
                             "end_col": 33,
-                            "end_line": 17,
+                            "end_line": 14,
                             "input_file": {
                                 "filename": "programs/fibonacci.cairo"
                             },
                             "start_col": 32,
-                            "start_line": 17
+                            "start_line": 14
                         },
                         "While expanding the reference 'y' in:"
                     ],
                     "start_col": 13,
-                    "start_line": 16
+                    "start_line": 13
                 }
             },
-            "19": {
+            "17": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -434,15 +407,15 @@
                 "hints": [],
                 "inst": {
                     "end_col": 40,
-                    "end_line": 17,
+                    "end_line": 14,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 35,
-                    "start_line": 17
+                    "start_line": 14
                 }
             },
-            "21": {
+            "19": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -462,15 +435,15 @@
                 "hints": [],
                 "inst": {
                     "end_col": 41,
-                    "end_line": 17,
+                    "end_line": 14,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 12,
-                    "start_line": 17
+                    "start_line": 14
                 }
             },
-            "23": {
+            "21": {
                 "accessible_scopes": [
                     "__main__",
                     "__main__.fib"
@@ -490,12 +463,12 @@
                 "hints": [],
                 "inst": {
                     "end_col": 42,
-                    "end_line": 17,
+                    "end_line": 14,
                     "input_file": {
                         "filename": "programs/fibonacci.cairo"
                     },
                     "start_col": 5,
-                    "start_line": 17
+                    "start_line": 14
                 }
             }
         }
@@ -504,7 +477,7 @@
     "identifiers": {
         "__main__.fib": {
             "decorators": [],
-            "pc": 11,
+            "pc": 9,
             "type": "function"
         },
         "__main__.fib.Args": {
@@ -541,7 +514,7 @@
             "value": 0
         },
         "__main__.fib.fib_body": {
-            "pc": 16,
+            "pc": 14,
             "type": "label"
         },
         "__main__.fib.first_element": {
@@ -553,7 +526,7 @@
                         "group": 2,
                         "offset": 0
                     },
-                    "pc": 11,
+                    "pc": 9,
                     "value": "[cast(fp + (-5), felt*)]"
                 }
             ],
@@ -568,7 +541,7 @@
                         "group": 2,
                         "offset": 0
                     },
-                    "pc": 11,
+                    "pc": 9,
                     "value": "[cast(fp + (-3), felt*)]"
                 }
             ],
@@ -583,7 +556,7 @@
                         "group": 2,
                         "offset": 1
                     },
-                    "pc": 14,
+                    "pc": 12,
                     "value": "[cast(ap + (-1), felt*)]"
                 }
             ],
@@ -598,7 +571,7 @@
                         "group": 2,
                         "offset": 0
                     },
-                    "pc": 11,
+                    "pc": 9,
                     "value": "[cast(fp + (-4), felt*)]"
                 }
             ],
@@ -613,7 +586,7 @@
                         "group": 2,
                         "offset": 1
                     },
-                    "pc": 17,
+                    "pc": 15,
                     "value": "[cast(ap + (-1), felt*)]"
                 }
             ],
@@ -677,7 +650,7 @@
                     "group": 2,
                     "offset": 0
                 },
-                "pc": 11,
+                "pc": 9,
                 "value": "[cast(fp + (-5), felt*)]"
             },
             {
@@ -685,7 +658,7 @@
                     "group": 2,
                     "offset": 0
                 },
-                "pc": 11,
+                "pc": 9,
                 "value": "[cast(fp + (-4), felt*)]"
             },
             {
@@ -693,7 +666,7 @@
                     "group": 2,
                     "offset": 0
                 },
-                "pc": 11,
+                "pc": 9,
                 "value": "[cast(fp + (-3), felt*)]"
             },
             {
@@ -701,7 +674,7 @@
                     "group": 2,
                     "offset": 1
                 },
-                "pc": 14,
+                "pc": 12,
                 "value": "[cast(ap + (-1), felt*)]"
             },
             {
@@ -709,7 +682,7 @@
                     "group": 2,
                     "offset": 1
                 },
-                "pc": 17,
+                "pc": 15,
                 "value": "[cast(ap + (-1), felt*)]"
             }
         ]

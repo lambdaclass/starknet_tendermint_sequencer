@@ -72,8 +72,7 @@ async fn run(path: &PathBuf, function_name: &str, sequencer_url: &str) -> Result
     match broadcast(transaction_serialized, sequencer_url).await {
         Ok(_) => Ok(format!(
             "Sent transaction (ID {}) succesfully. Hash: {}",
-            transaction.id,
-            transaction.transaction_hash
+            transaction.id, transaction.transaction_hash
         )),
         Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
     }
