@@ -1,12 +1,11 @@
 use clap::Parser;
 use lib::{Transaction, TransactionType};
-use tracing::{info, trace};
+use std::net::SocketAddr;
 use std::time::Instant;
-use std::{net::SocketAddr};
 use tendermint_rpc::{Client, HttpClient};
+use tracing::{info, trace};
 use tracing_subscriber::util::SubscriberInitExt;
 use uuid::Uuid;
-
 
 #[derive(Parser)]
 #[clap()]
@@ -17,7 +16,7 @@ pub struct Cli {
 
     /// Number of transactions per second each thread sends out.
     #[clap(short, long, value_parser, value_name = "UINT", default_value_t = 1000)]
-    pub transactions_per_second: usize,
+    pub transactions_per_thread: usize,
 
     /// Nodes to which transactions will be sent to (round-robin).
     #[clap(
@@ -56,9 +55,9 @@ async fn main() {
     let time = Instant::now();
 
     for _i in 0..cli.threads {
-        let mut transactions: Vec<Transaction> = Vec::with_capacity(cli.transactions_per_second);
+        let mut transactions: Vec<Transaction> = Vec::with_capacity(cli.transactions_per_thread);
 
-        for _i in 0..cli.transactions_per_second {
+        for _i in 0..cli.transactions_per_thread {
             let t = transaction.clone();
 
             transactions.push(Transaction {
@@ -67,18 +66,18 @@ async fn main() {
                 transaction_type: t.transaction_type,
             });
         }
-        let nodes =  cli.nodes.clone();
-
+        let nodes = cli.nodes.clone();
 
         handles.push(tokio::spawn(async move {
             run(transactions.clone(), &nodes).await;
         }));
-
     }
 
     futures::future::join_all(handles).await;
-    info!("Time it took for all transactions to be delivered: {}", time.elapsed().as_millis());
-
+    info!(
+        "Time it took for all transactions to be delivered: {}",
+        time.elapsed().as_millis()
+    );
 }
 
 async fn run(transactions: Vec<Transaction>, nodes: &Vec<SocketAddr>) {
@@ -99,7 +98,7 @@ async fn run(transactions: Vec<Transaction>, nodes: &Vec<SocketAddr>) {
         let response = c.unwrap().broadcast_tx_sync(tx).await;
 
         match &response {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(v) => info!("failure: {}", v),
         }
 

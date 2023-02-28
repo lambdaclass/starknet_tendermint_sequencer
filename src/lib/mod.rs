@@ -10,7 +10,7 @@ use cairo_vm::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tracing::info;
+
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

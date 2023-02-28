@@ -22,8 +22,18 @@ Run the ABCI sequencer application:
 ```bash
 make abci
 ```
-
 In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
+
+### Benchmark
+
+You can run a benchmark
+
+```bash
+cargo run --release --bin bench -- --nodes "{list-of-nodes}" --threads 4 --transactions-per-thread 1000
+```
+
+Where `list-of-nodes` is a list of addresses that are part of the Tendermint network (in the form of `ipaddr:socket`).
+Requests are sent with a round-robin fashion to the list of nodes, through the number of threads you specify, with the amount of transactions per thread you desire. 
 
 ## Reference links
 * [Starknet sequencer](https://www.starknet.io/de/posts/engineering/starknets-new-sequencer#:~:text=What%20does%20the%20sequencer%20do%3F)
