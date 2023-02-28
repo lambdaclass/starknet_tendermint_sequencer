@@ -33,7 +33,17 @@ cargo run --release --bin bench -- --nodes "{list-of-nodes}" --threads 4 --trans
 ```
 
 Where `list-of-nodes` is a list of addresses that are part of the Tendermint network (in the form of `ipaddr:socket`).
-Requests are sent with a round-robin fashion to the list of nodes, through the number of threads you specify, with the amount of transactions per thread you desire. 
+The benchmark runs `fibonacci.json` (`fib(500)`), where requests are sent with a round-robin fashion to the list of nodes, through the number of threads you specify, with the amount of transactions per thread you desire.
+
+#### Example run
+
+```bash
+> cargo run --release --bin bench -- --nodes "127.0.0.1:26157 127.0.0.1:26057"
+
+Time it took for all transactions to be delivered: 1308 ms
+```
+
+Note that this is the time for all transactions to return (ie; validation that they have entered the mempool), but no assumptions can be made in terms of transaction finality.
 
 ## Reference links
 * [Starknet sequencer](https://www.starknet.io/de/posts/engineering/starknets-new-sequencer#:~:text=What%20does%20the%20sequencer%20do%3F)

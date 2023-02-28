@@ -75,7 +75,7 @@ async fn main() {
 
     futures::future::join_all(handles).await;
     info!(
-        "Time it took for all transactions to be delivered: {}",
+        "Time it took for all transactions to be delivered: {} ms",
         time.elapsed().as_millis()
     );
 }
