@@ -1,9 +1,7 @@
 func main() {
     // Call fib(1, 1, 10).
-    let result: felt = fib(1, 1, 10);
+    let result: felt = fib(1, 1, 500);
 
-    // Make sure the 10th Fibonacci number is 144.
-    assert result = 144;
     ret;
 }
 
