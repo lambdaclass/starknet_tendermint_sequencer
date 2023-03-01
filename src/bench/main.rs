@@ -48,23 +48,29 @@ async fn main() {
         function: "main".to_string(),
         program_name: "fibonacci".to_string(),
     };
+
     let transaction = Transaction::with_type(transaction_type).unwrap();
+    info!("Single benchmark transaction size: {} bytes", bincode::serialize(&transaction).unwrap().len());
 
     let mut handles = vec![];
 
     let time = Instant::now();
 
+    // prepare a pool of transactions for each thread in order to have them sent out as soon as possible
     for _i in 0..cli.threads {
-        let mut transactions: Vec<Transaction> = Vec::with_capacity(cli.transactions_per_thread);
+        let mut transactions = Vec::with_capacity(cli.transactions_per_thread);
 
         for _i in 0..cli.transactions_per_thread {
             let t = transaction.clone();
-
-            transactions.push(Transaction {
+            // in order to not have Tendermint see the transactions as duplicate and discard them, 
+            // clone the transactions with a different ID
+            let t = Transaction {
                 id: Uuid::new_v4().to_string(),
                 transaction_hash: t.transaction_hash,
                 transaction_type: t.transaction_type,
-            });
+            };
+
+            transactions.push(bincode::serialize(&t).unwrap());
         }
         let nodes = cli.nodes.clone();
 
@@ -80,7 +86,7 @@ async fn main() {
     );
 }
 
-async fn run(transactions: Vec<Transaction>, nodes: &Vec<SocketAddr>) {
+async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
     let time = Instant::now();
     let mut clients = vec![];
     for i in 0..nodes.len() {
@@ -89,12 +95,11 @@ async fn run(transactions: Vec<Transaction>, nodes: &Vec<SocketAddr>) {
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
+    // for each transaction in this thread, send transactions in a round robin fashion to each node 
     for (i, t) in transactions.into_iter().enumerate() {
-        let transaction_bin = bincode::serialize(&t);
+        let tx: tendermint::abci::Transaction = t.into();
 
-        let tx: tendermint::abci::Transaction = transaction_bin.unwrap().into();
-
-        let c = clients.get(i % clients.len());
+        let c = clients.get(i % clients.len()); // get destination node
         let response = c.unwrap().broadcast_tx_sync(tx).await;
 
         match &response {
@@ -102,13 +107,13 @@ async fn run(transactions: Vec<Transaction>, nodes: &Vec<SocketAddr>) {
             Err(v) => info!("failure: {}", v),
         }
 
-        //let response = response.unwrap();
-        //match response.code {
-        //    tendermint::abci::Code::Ok => {},
-        //    tendermint::abci::Code::Err(code) => {
-        //        info!("Error executing transaction {}: {}", code, response.log);
-        //    }
-        //}
+        let response = response.unwrap();
+        match response.code {
+            tendermint::abci::Code::Ok => {},
+            tendermint::abci::Code::Err(code) => {
+                info!("Error executing transaction {}: {}", code, response.log);
+            }
+        }
     }
     trace!("time doing transactions: {}", time.elapsed().as_millis());
 }
