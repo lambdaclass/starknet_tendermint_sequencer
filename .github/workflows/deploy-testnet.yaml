@@ -1,9 +1,11 @@
-name: Deploy tendermint testnet
+name: Reset and deploy tendermint testnet
 on: workflow_dispatch
 jobs:
 
   deploy:
-    name: Build and deploy to production
+    name: Reset and deploy tendermint testnet
+    environment:
+      name: development
     runs-on: ubuntu-latest
     steps:
 
