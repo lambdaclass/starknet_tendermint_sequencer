@@ -2,21 +2,18 @@ use anyhow::{ensure, Context, Result};
 use cairo_vm::{
     hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
     types::{program::Program, relocatable::MaybeRelocatable},
-    vm::{
-        errors::{cairo_run_errors::CairoRunError, trace_errors::TraceError},
-        runners::cairo_runner::CairoRunner,
-        vm_core::VirtualMachine,
-    },
+    vm::{runners::cairo_runner::CairoRunner, vm_core::VirtualMachine},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
 use tracing::info;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub id: String,
-    pub transaction_hash: String, // this acts 
+    pub transaction_hash: String, // this acts
     pub transaction_type: TransactionType,
 }
 
@@ -26,6 +23,7 @@ pub enum TransactionType {
         program: String,
         function: String,
         program_name: String,
+        enable_trace: bool,
     },
 }
 
@@ -58,9 +56,10 @@ impl TransactionType {
                 program: program_str,
                 function,
                 program_name: _,
+                enable_trace: execute_trace,
             } => {
                 let program = Program::from_reader(program_str.as_bytes(), None)?;
-                let mut vm = VirtualMachine::new(true);
+                let mut vm = VirtualMachine::new(*execute_trace);
 
                 let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
 
@@ -87,18 +86,16 @@ impl TransactionType {
                 )?;
                 cairo_runner.relocate(&mut vm).unwrap();
 
-                info!(
-                    "Executing and getting trace for program {}, function {}",
-                    program_str, function
-                );
-                let trace = cairo_runner
-                    .relocated_trace
-                    .ok_or(CairoRunError::Trace(TraceError::TraceNotEnabled))?;
+                let trace = cairo_runner.relocated_trace;
 
-                for reg in trace {
-                    hasher.update(serde_json::to_string(&reg)?);
+                match trace {
+                    Some(trace) => {
+                        for reg in trace {
+                            hasher.update(serde_json::to_string(&reg)?);
+                        }
+                    }
+                    None => info!("Trace not enabled, not executing/hashing"),
                 }
-
                 hasher.update(function);
             }
         }
