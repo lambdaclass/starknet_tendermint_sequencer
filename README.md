@@ -24,6 +24,14 @@ make abci
 ```
 In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
 
+### Send an execution
+
+To send executions to the sequencer you need to have a compiled Cairo program (*.json files in the repo). Then you can send them like so:
+
+```bash
+cargo run --release programs/fibonacci.json main
+```
+
 ### Benchmark
 
 You can run a benchmark
@@ -44,7 +52,6 @@ Time it took for all transactions to be delivered: 1308 ms
 ```
 
 Note that this is the time for all transactions to return (ie; validation that they have entered the mempool), but no assumptions can be made in terms of transaction finality.
-
 ## Reference links
 * [Starknet sequencer](https://www.starknet.io/de/posts/engineering/starknets-new-sequencer#:~:text=What%20does%20the%20sequencer%20do%3F)
 * [Papyrus Starknet full node](https://medium.com/starkware/papyrus-an-open-source-starknet-full-node-396f7cd90202)
