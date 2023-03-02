@@ -98,6 +98,12 @@ impl Application for CairoApp {
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
         unsafe {
             TRANSACTIONS = 0;
+
+            info!(
+                "{} ms passed between previous begin_block() and current begin_block()",
+                (*TIMER).elapsed().as_millis()
+            );
+
             *TIMER = Instant::now();
         }
 
@@ -216,15 +222,8 @@ impl Application for CairoApp {
 
         let height = HeightFile::increment();
 
-        unsafe {
-            info!(
-                "Committing height {} with {} transactions in {} ms. TPS: {}",
-                height,
-                TRANSACTIONS,
-                (*TIMER).elapsed().as_millis(),
-                (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
-            );
-        }
+        info!("Committing height {}", height,);
+
         match app_hash {
             Ok(hash) => abci::ResponseCommit {
                 data: hash,
