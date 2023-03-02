@@ -34,6 +34,7 @@
       ansible.builtin.git:
         repo: git@github.com:lambdaclass/starknet_tendermint_sequencer.git
         dest: /root/starknet_tendermint_sequencer
+        version: bench
         accept_hostkey: true
 
   post_tasks:
