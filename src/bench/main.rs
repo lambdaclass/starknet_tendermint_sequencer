@@ -47,10 +47,14 @@ async fn main() {
         program,
         function: "main".to_string(),
         program_name: "fibonacci".to_string(),
+        enable_trace: false,
     };
 
     let transaction = Transaction::with_type(transaction_type).unwrap();
-    info!("Single benchmark transaction size: {} bytes", bincode::serialize(&transaction).unwrap().len());
+    info!(
+        "Single benchmark transaction size: {} bytes",
+        bincode::serialize(&transaction).unwrap().len()
+    );
 
     let mut handles = vec![];
 
@@ -62,7 +66,7 @@ async fn main() {
 
         for _i in 0..cli.transactions_per_thread {
             let t = transaction.clone();
-            // in order to not have Tendermint see the transactions as duplicate and discard them, 
+            // in order to not have Tendermint see the transactions as duplicate and discard them,
             // clone the transactions with a different ID
             let t = Transaction {
                 id: Uuid::new_v4().to_string(),
@@ -95,7 +99,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
-    // for each transaction in this thread, send transactions in a round robin fashion to each node 
+    // for each transaction in this thread, send transactions in a round robin fashion to each node
     for (i, t) in transactions.into_iter().enumerate() {
         let tx: tendermint::abci::Transaction = t.into();
 
@@ -109,7 +113,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
 
         let response = response.unwrap();
         match response.code {
-            tendermint::abci::Code::Ok => {},
+            tendermint::abci::Code::Ok => {}
             tendermint::abci::Code::Err(code) => {
                 info!("Error executing transaction {}: {}", code, response.log);
             }
