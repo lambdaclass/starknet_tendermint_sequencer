@@ -1,0 +1,37 @@
+name: Deploy tendermint testnet
+on: workflow_dispatch
+jobs:
+
+  deploy:
+    name: Build and deploy to production
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3.3.0
+
+    - name: Run deploy on all nodes
+      uses: dawidd6/action-ansible-playbook@v2
+      with:
+        # Required, playbook filepath
+        playbook: deploy.yaml
+        # Optional, directory where playbooks live
+        directory: ./ansible/playbooks/
+        # Optional, SSH private key
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        # Optional, literal inventory file contents
+        inventory: |
+          tendermint-nodes:
+            hosts:
+              starknet-0:
+                ansible_host: "5.9.57.45"
+                ansible_user: root
+                ansible_python_interpreter: /usr/bin/python3
+              starknet-1:
+                ansible_host: "5.9.57.44"
+                ansible_user: root
+                ansible_python_interpreter: /usr/bin/python3
+              starknet-2:
+                ansible_host: "5.9.57.89"
+                ansible_user: root
+                ansible_python_interpreter: /usr/bin/python3

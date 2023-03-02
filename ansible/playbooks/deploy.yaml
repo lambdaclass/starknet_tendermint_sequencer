@@ -1,0 +1,51 @@
+- name: Deploy new version
+  hosts: tendermint-nodes
+  gather_facts: false
+  any_errors_fatal: true
+  become: true
+  become_user: root
+
+  pre_tasks:
+
+    - name: Stop tendermint service
+      ansible.builtin.systemd:
+        state: stopped
+        name: tendermint
+        daemon_reload: true
+
+    - name: Stop abci service
+      ansible.builtin.systemd:
+        state: stopped
+        name: abci
+        daemon_reload: true
+
+  tasks:
+
+    - name: Reset tendermint network
+      ansible.builtin.shell: |
+        /usr/bin/tendermint unsafe_reset_all --home /.tendermint
+
+    - name: Delete starknet_tendermint_sequencer repo
+      ansible.builtin.file:
+        state: absent
+        path: /root/starknet_tendermint_sequencer
+
+    - name: Clone starknet_tendermint_sequencer repo
+      ansible.builtin.git:
+        repo: git@github.com:lambdaclass/starknet_tendermint_sequencer.git
+        dest: /root/starknet_tendermint_sequencer
+        accept_hostkey: true
+
+  post_tasks:
+
+    - name: Start abci service
+      ansible.builtin.systemd:
+        state: started
+        name: abci
+        daemon_reload: true
+
+    - name: Start tendermint service
+      ansible.builtin.systemd:
+        state: started
+        name: tendermint
+        daemon_reload: true
