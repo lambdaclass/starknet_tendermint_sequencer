@@ -27,11 +27,14 @@ jobs:
                 ansible_host: "5.9.57.45"
                 ansible_user: root
                 ansible_python_interpreter: /usr/bin/python3
+                ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
               starknet-1:
                 ansible_host: "5.9.57.44"
                 ansible_user: root
                 ansible_python_interpreter: /usr/bin/python3
+                ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
               starknet-2:
                 ansible_host: "5.9.57.89"
                 ansible_user: root
                 ansible_python_interpreter: /usr/bin/python3
+                ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
