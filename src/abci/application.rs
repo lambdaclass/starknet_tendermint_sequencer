@@ -6,6 +6,7 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
+use starknet_rs::definitions::general_config::StarknetGeneralConfig;
 use tendermint_abci::Application;
 use tendermint_proto::abci;
 
@@ -18,6 +19,7 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct CairoApp {
     hasher: Arc<Mutex<Sha256>>,
+    starknet: StarknetGeneralConfig
 }
 
 static mut TRANSACTIONS: usize = 0;

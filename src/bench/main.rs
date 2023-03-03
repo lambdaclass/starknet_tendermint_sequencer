@@ -94,8 +94,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
     let time = Instant::now();
     let mut clients = vec![];
     for i in 0..nodes.len() {
-        let mut url = "http://".to_owned();
-        url.push_str(&nodes.get(i).unwrap().to_string());
+        let url = format!("http://{}",&nodes.get(i).unwrap());
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
@@ -104,7 +103,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
         let tx: tendermint::abci::Transaction = t.into();
 
         let c = clients.get(i % clients.len()); // get destination node
-        let response = c.unwrap().broadcast_tx_sync(tx).await;
+        let response = c.unwrap().broadcast_tx_async(tx).await;
 
         match &response {
             Ok(_) => {}

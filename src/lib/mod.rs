@@ -24,6 +24,11 @@ pub struct Transaction {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TransactionType {
+    Declare,
+    Deploy,
+    Invoke,
+
+    /// Legacy:
     FunctionExecution {
         program: String,
         function: String,
