@@ -46,7 +46,7 @@ async fn main() {
     let transaction_type = TransactionType::FunctionExecution {
         program,
         function: "main".to_string(),
-        program_name: "fibonacci".to_string(),
+        program_name: "fibonacci.json".to_string(),
         enable_trace: false,
     };
 

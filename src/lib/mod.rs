@@ -15,6 +15,7 @@ use starknet_rs::utils::Address;
 use starknet_rs::services::api::contract_class::{ContractClass, EntryPointType};
 use uuid::Uuid;
 
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
     pub id: String,
@@ -28,7 +29,7 @@ pub enum TransactionType {
     Deploy,
     Invoke,
 
-    /// Legacy:
+    // TODO: Remove this when other transactions are implemented
     FunctionExecution {
         program: String,
         function: String,
@@ -125,6 +126,9 @@ impl TransactionType {
                 let hash = hasher.finalize().as_slice().to_owned();
                 Ok(hex::encode(hash))
             }
+            TransactionType::Declare => todo!(),
+            TransactionType::Deploy => todo!(),
+            TransactionType::Invoke => todo!(),
         }
     }
 }

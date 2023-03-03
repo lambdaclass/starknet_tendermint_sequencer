@@ -6,9 +6,9 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::definitions::general_config::StarknetGeneralConfig;
 use tendermint_abci::Application;
 use tendermint_proto::abci;
+use starknet_rs::testing::starknet_state::StarknetState;
 
 use tracing::{debug, info};
 
@@ -19,9 +19,12 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct CairoApp {
     hasher: Arc<Mutex<Sha256>>,
-    starknet: StarknetGeneralConfig
+    starknet_state: StarknetState
 }
 
+// because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
+// and because beginblock, endblock and deliver_tx all happen in the same thread, this is safe to do 
+// an alternative would be Arc<Mutex<>>, but we want to avoid extra-overhead of locks for the benchmark's sake
 static mut TRANSACTIONS: usize = 0;
 static mut TIMER: Lazy<Instant> = Lazy::new(Instant::now);
 
@@ -87,6 +90,9 @@ impl Application for CairoApp {
                     function, program_name
                 );
             }
+            TransactionType::Declare => todo!(),
+            TransactionType::Deploy => todo!(),
+            TransactionType::Invoke => todo!(),
         }
 
         abci::ResponseCheckTx {
@@ -98,6 +104,7 @@ impl Application for CairoApp {
     /// Used to store current proposer and the previous block's voters to assign fees and coinbase
     /// credits when the block is committed.
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
+        // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
         unsafe {
             TRANSACTIONS = 0;
 
@@ -126,6 +133,7 @@ impl Application for CairoApp {
             .compute_and_hash()
             .map(|x| x == tx.transaction_hash);
 
+        // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
         unsafe {
             TRANSACTIONS += 1;
         }
@@ -165,6 +173,9 @@ impl Application for CairoApp {
                         };
                         events.push(function_event);
                     }
+                    TransactionType::Declare => todo!(),
+                    TransactionType::Deploy => todo!(),
+                    TransactionType::Invoke => todo!(),
                 }
 
                 abci::ResponseDeliverTx {
@@ -192,6 +203,7 @@ impl Application for CairoApp {
     /// For details about validator set update semantics see:
     /// https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#endblock
     fn end_block(&self, _request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
+        // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
         unsafe {
             info!(
                 "Committing block with {} transactions in {} ms. TPS: {}",
@@ -243,9 +255,13 @@ impl Application for CairoApp {
 impl CairoApp {
     /// Constructor.
     pub fn new() -> Self {
-        Self {
+        let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-        }
+            starknet_state: StarknetState::new(None)
+        };
+
+        info!("Starting with Starknet State: {:?}", new_state.starknet_state);
+        new_state
     }
 }
 
