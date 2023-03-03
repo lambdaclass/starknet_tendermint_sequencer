@@ -47,7 +47,6 @@ async fn main() {
         program,
         function: "main".to_string(),
         program_name: "fibonacci".to_string(),
-        enable_trace: false,
     };
 
     let transaction = Transaction::with_type(transaction_type).unwrap();

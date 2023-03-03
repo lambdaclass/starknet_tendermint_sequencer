@@ -28,7 +28,6 @@ pub enum TransactionType {
         program: String,
         function: String,
         program_name: String,
-        enable_trace: bool,
     },
 }
 
@@ -59,7 +58,6 @@ impl TransactionType {
                 program: _,
                 function,
                 program_name,
-                enable_trace: _
             } => {
 
                 let general_config = StarknetGeneralConfig::default();
