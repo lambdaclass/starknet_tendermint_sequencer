@@ -4,17 +4,16 @@ use anyhow::{ensure, Result};
 use felt::Felt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use starknet_rs::definitions::general_config::StarknetGeneralConfig;
-use starknet_rs::business_logic::state::cached_state::CachedState;
 use starknet_rs::business_logic::execution::execution_entry_point::ExecutionEntryPoint;
 use starknet_rs::business_logic::execution::objects::{CallType, TransactionExecutionContext};
-use starknet_rs::business_logic::fact_state::in_memory_state_reader::InMemoryStateReader;
 use starknet_rs::business_logic::fact_state::contract_state::ContractState;
+use starknet_rs::business_logic::fact_state::in_memory_state_reader::InMemoryStateReader;
 use starknet_rs::business_logic::fact_state::state::ExecutionResourcesManager;
-use starknet_rs::utils::Address;
+use starknet_rs::business_logic::state::cached_state::CachedState;
+use starknet_rs::definitions::general_config::StarknetGeneralConfig;
 use starknet_rs::services::api::contract_class::{ContractClass, EntryPointType};
+use starknet_rs::utils::Address;
 use uuid::Uuid;
-
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
@@ -25,8 +24,13 @@ pub struct Transaction {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TransactionType {
+    /// Create new contract class.
     Declare,
+
+    /// Create an instance of a contract which will have storage assigned. (Accounts are a contract themselves)
     Deploy,
+
+    /// Execute a function from a deployed contract.
     Invoke,
 
     // TODO: Remove this when other transactions are implemented
@@ -65,25 +69,23 @@ impl TransactionType {
                 program: _,
                 function,
                 program_name,
-                enable_trace: _
+                enable_trace: _,
             } => {
-
                 let general_config = StarknetGeneralConfig::default();
 
-                let tx_execution_context =
-                    TransactionExecutionContext::create_for_testing(
-                        Address(0.into()),
-                        10,
-                        0.into(),
-                        general_config.invoke_tx_max_n_steps(),
-                        1,
-                    );
+                let tx_execution_context = TransactionExecutionContext::create_for_testing(
+                    Address(0.into()),
+                    10,
+                    0.into(),
+                    general_config.invoke_tx_max_n_steps(),
+                    1,
+                );
 
                 let contract_address = Address(1111.into());
                 let class_hash = [1; 32];
                 let contract_class =
                     ContractClass::try_from(PathBuf::from("programs").join(program_name))
-                    .expect("Could not load contract from JSON");
+                        .expect("Could not load contract from JSON");
 
                 let contract_state = ContractState::new(
                     class_hash,
@@ -103,11 +105,13 @@ impl TransactionType {
                 let entry_point = ExecutionEntryPoint::new(
                     contract_address,
                     vec![],
-                    Felt::from_bytes_be(&starknet_rs::utils::calculate_sn_keccak(function.as_bytes())),
+                    Felt::from_bytes_be(&starknet_rs::utils::calculate_sn_keccak(
+                        function.as_bytes(),
+                    )),
                     Address(0.into()),
                     EntryPointType::External,
                     CallType::Delegate.into(),
-                    class_hash.into()
+                    class_hash.into(),
                 );
 
                 let mut resources_manager = ExecutionResourcesManager::default();

@@ -6,9 +6,9 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
+use starknet_rs::testing::starknet_state::StarknetState;
 use tendermint_abci::Application;
 use tendermint_proto::abci;
-use starknet_rs::testing::starknet_state::StarknetState;
 
 use tracing::{debug, info};
 
@@ -19,11 +19,11 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct CairoApp {
     hasher: Arc<Mutex<Sha256>>,
-    starknet_state: StarknetState
+    starknet_state: StarknetState,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
-// and because beginblock, endblock and deliver_tx all happen in the same thread, this is safe to do 
+// and because beginblock, endblock and deliver_tx all happen in the same thread, this is safe to do
 // an alternative would be Arc<Mutex<>>, but we want to avoid extra-overhead of locks for the benchmark's sake
 static mut TRANSACTIONS: usize = 0;
 static mut TIMER: Lazy<Instant> = Lazy::new(Instant::now);
@@ -257,10 +257,13 @@ impl CairoApp {
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: StarknetState::new(None)
+            starknet_state: StarknetState::new(None),
         };
 
-        info!("Starting with Starknet State: {:?}", new_state.starknet_state);
+        info!(
+            "Starting with Starknet State: {:?}",
+            new_state.starknet_state
+        );
         new_state
     }
 }

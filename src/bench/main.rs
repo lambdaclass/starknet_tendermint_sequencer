@@ -94,7 +94,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
     let time = Instant::now();
     let mut clients = vec![];
     for i in 0..nodes.len() {
-        let url = format!("http://{}",&nodes.get(i).unwrap());
+        let url = format!("http://{}", &nodes.get(i).unwrap());
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
