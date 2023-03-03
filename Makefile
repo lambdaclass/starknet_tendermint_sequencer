@@ -88,6 +88,10 @@ localnet_config:
 
 
 localnet_reset:
-	bin/tendermint unsafe_reset_all 
-		rm -rf localnet/node*/abci/abci.height; 
+	bin/tendermint unsafe_reset_all
+		rm -rf localnet/node*/abci/abci.height;
 .PHONY: localnet_reset
+
+.PHONY: clippy
+clippy:
+	cargo clippy --all-targets --all-features -- -D warnings
