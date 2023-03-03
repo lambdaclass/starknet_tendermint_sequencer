@@ -1,6 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use lib::{Transaction, TransactionType};
+use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tendermint_abci::Application;
 use tendermint_proto::abci;
@@ -15,6 +19,9 @@ use tracing::{debug, info};
 pub struct CairoApp {
     hasher: Arc<Mutex<Sha256>>,
 }
+
+static mut TRANSACTIONS: usize = 0;
+static mut TIMER: Lazy<Instant> = Lazy::new(Instant::now);
 
 impl Application for CairoApp {
     /// This hook is called once upon genesis. It's used to load a default set of records which
@@ -71,6 +78,7 @@ impl Application for CairoApp {
                 program: _,
                 function,
                 program_name,
+                enable_trace: _,
             } => {
                 info!(
                     "Received execution transaction. Function: {}, program {}",
@@ -88,6 +96,17 @@ impl Application for CairoApp {
     /// Used to store current proposer and the previous block's voters to assign fees and coinbase
     /// credits when the block is committed.
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
+        unsafe {
+            TRANSACTIONS = 0;
+
+            info!(
+                "{} ms passed between previous begin_block() and current begin_block()",
+                (*TIMER).elapsed().as_millis()
+            );
+
+            *TIMER = Instant::now();
+        }
+
         Default::default()
     }
 
@@ -100,7 +119,14 @@ impl Application for CairoApp {
         // Validation consists of getting the hash and checking whether it is equal
         // to the tx id. The hash executes the program and hashes the trace.
 
-        let tx_hash = tx.transaction_type.compute_and_hash().map(|x| x == tx.transaction_hash);
+        let tx_hash = tx
+            .transaction_type
+            .compute_and_hash()
+            .map(|x| x == tx.transaction_hash);
+
+        unsafe {
+            TRANSACTIONS += 1;
+        }
 
         match tx_hash {
             Ok(true) => {
@@ -125,6 +151,7 @@ impl Application for CairoApp {
                         program: _program,
                         function,
                         program_name: _,
+                        enable_trace: _,
                     } => {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
@@ -163,6 +190,14 @@ impl Application for CairoApp {
     /// For details about validator set update semantics see:
     /// https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#endblock
     fn end_block(&self, _request: abci::RequestEndBlock) -> abci::ResponseEndBlock {
+        unsafe {
+            info!(
+                "Committing block with {} transactions in {} ms. TPS: {}",
+                TRANSACTIONS,
+                (*TIMER).elapsed().as_millis(),
+                (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
+            );
+        }
         abci::ResponseEndBlock {
             ..Default::default()
         }
@@ -187,7 +222,8 @@ impl Application for CairoApp {
 
         let height = HeightFile::increment();
 
-        info!("Committing height {}", height);
+        info!("Committing height {}", height,);
+
         match app_hash {
             Ok(hash) => abci::ResponseCommit {
                 data: hash,
