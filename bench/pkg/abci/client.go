@@ -2,6 +2,7 @@ package abci
 
 import (
     "github.com/informalsystems/tm-load-test/pkg/loadtest"
+    "github.com/google/uuid"
     "log"
     "os/exec"
     "bytes"
@@ -47,5 +48,10 @@ func (f *MyABCIAppClientFactory) NewClient(cfg loadtest.Config) (loadtest.Client
 // loadtest package, so don't worry about that. Only return an error here if you
 // want to completely fail the entire load test operation.
 func (c *MyABCIAppClient) GenerateTx() ([]byte, error) {
-    return c.tx, nil
+    var newTx []byte
+    newTx = append(newTx, c.tx[0:8]...)
+    // Replacing the uuid with a new random one to prevent getting duplicated tx rejected
+    newTx = append(newTx, []byte(uuid.New().String())...)
+    newTx = append(newTx, c.tx[44:]...)
+    return newTx, nil
 }
