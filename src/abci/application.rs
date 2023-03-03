@@ -83,7 +83,6 @@ impl Application for CairoApp {
                 program: _,
                 function,
                 program_name,
-                enable_trace: _,
             } => {
                 info!(
                     "Received execution transaction. Function: {}, program {}",
@@ -161,7 +160,6 @@ impl Application for CairoApp {
                         program: _program,
                         function,
                         program_name: _,
-                        enable_trace: _,
                     } => {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
