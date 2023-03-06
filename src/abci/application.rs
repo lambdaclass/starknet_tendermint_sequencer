@@ -108,12 +108,10 @@ impl Application for CairoApp {
             info!(
                 "{} ms passed between begin_block() calls. {} transactions, {} tps",
                 (*TIMER).elapsed().as_millis(),
-            TRANSACTIONS,
-            (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
-        );
+                TRANSACTIONS,
+                (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
+            );
             TRANSACTIONS = 0;
-
-
 
             *TIMER = Instant::now();
         }

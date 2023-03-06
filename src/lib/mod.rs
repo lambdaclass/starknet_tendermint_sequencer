@@ -81,9 +81,8 @@ impl TransactionType {
 
                 let contract_address = Address(1111.into());
                 let class_hash = [1; 32];
-                let contract_class =
-                    ContractClass::try_from(program.clone())
-                        .expect("Could not load contract from JSON");
+                let contract_class = ContractClass::try_from(program.clone())
+                    .expect("Could not load contract from JSON");
 
                 let contract_state = ContractState::new(
                     class_hash,

@@ -100,7 +100,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
-    let n_transactions = transactions.len(); 
+    let n_transactions = transactions.len();
     // for each transaction in this thread, send transactions in a round robin fashion to each node
     for (i, t) in transactions.into_iter().enumerate() {
         let tx: tendermint::abci::Transaction = t.into();
@@ -121,5 +121,9 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
             }
         }
     }
-    info!("transactions sent: {} in {} ms", n_transactions, time.elapsed().as_millis());
+    info!(
+        "transactions sent: {} in {} ms",
+        n_transactions,
+        time.elapsed().as_millis()
+    );
 }

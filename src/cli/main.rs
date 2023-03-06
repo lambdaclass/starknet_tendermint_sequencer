@@ -49,17 +49,11 @@ async fn main() {
             .init();
     }
 
-    let (exit_code, output) = match run(
-        &cli.path,
-        &cli.function_name,
-        &cli.url,
-        cli.no_broadcast,
-    )
-    .await
-    {
-        Ok(output) => (0, output),
-        Err(err) => (1, format!("error: {err}")),
-    };
+    let (exit_code, output) =
+        match run(&cli.path, &cli.function_name, &cli.url, cli.no_broadcast).await {
+            Ok(output) => (0, output),
+            Err(err) => (1, format!("error: {err}")),
+        };
 
     println!("{output:#}");
     std::process::exit(exit_code);
