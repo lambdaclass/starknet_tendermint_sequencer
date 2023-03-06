@@ -3,7 +3,7 @@ use lib::{Transaction, TransactionType};
 use std::net::SocketAddr;
 use std::time::Instant;
 use tendermint_rpc::{Client, HttpClient};
-use tracing::{info, trace};
+use tracing::{info, metadata::LevelFilter};
 use tracing_subscriber::util::SubscriberInitExt;
 use uuid::Uuid;
 
@@ -36,6 +36,9 @@ async fn main() {
     tracing_subscriber::fmt()
         // Use a more compact, abbreviated log format
         .compact()
+        // Display the thread ID an event was recorded on
+        .with_thread_ids(true)
+        .with_max_level(LevelFilter::INFO)
         // Build and init the subscriber
         .finish()
         .init();
@@ -46,8 +49,7 @@ async fn main() {
     let transaction_type = TransactionType::FunctionExecution {
         program,
         function: "main".to_string(),
-        program_name: "fibonacci".to_string(),
-        enable_trace: false,
+        program_name: "fibonacci.json".to_string(),
     };
 
     let transaction = Transaction::with_type(transaction_type).unwrap();
@@ -94,17 +96,17 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
     let time = Instant::now();
     let mut clients = vec![];
     for i in 0..nodes.len() {
-        let mut url = "http://".to_owned();
-        url.push_str(&nodes.get(i).unwrap().to_string());
+        let url = format!("http://{}", &nodes.get(i).unwrap());
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
+    let n_transactions = transactions.len();
     // for each transaction in this thread, send transactions in a round robin fashion to each node
     for (i, t) in transactions.into_iter().enumerate() {
         let tx: tendermint::abci::Transaction = t.into();
 
         let c = clients.get(i % clients.len()); // get destination node
-        let response = c.unwrap().broadcast_tx_sync(tx).await;
+        let response = c.unwrap().broadcast_tx_async(tx).await;
 
         match &response {
             Ok(_) => {}
@@ -119,5 +121,9 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
             }
         }
     }
-    trace!("time doing transactions: {}", time.elapsed().as_millis());
+    info!(
+        "transactions sent: {} in {} ms",
+        n_transactions,
+        time.elapsed().as_millis()
+    );
 }

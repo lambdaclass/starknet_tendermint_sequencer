@@ -1,13 +1,18 @@
-use anyhow::{ensure, Context, Result};
-use cairo_vm::{
-    hint_processor::builtin_hint_processor::builtin_hint_processor_definition::BuiltinHintProcessor,
-    types::{program::Program, relocatable::MaybeRelocatable},
-    vm::{runners::cairo_runner::CairoRunner, vm_core::VirtualMachine},
-};
+use std::collections::HashMap;
+
+use anyhow::{ensure, Result};
+use felt::Felt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-
-use tracing::info;
+use starknet_rs::business_logic::execution::execution_entry_point::ExecutionEntryPoint;
+use starknet_rs::business_logic::execution::objects::{CallType, TransactionExecutionContext};
+use starknet_rs::business_logic::fact_state::contract_state::ContractState;
+use starknet_rs::business_logic::fact_state::in_memory_state_reader::InMemoryStateReader;
+use starknet_rs::business_logic::fact_state::state::ExecutionResourcesManager;
+use starknet_rs::business_logic::state::cached_state::CachedState;
+use starknet_rs::definitions::general_config::StarknetGeneralConfig;
+use starknet_rs::services::api::contract_class::{ContractClass, EntryPointType};
+use starknet_rs::utils::Address;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -19,11 +24,20 @@ pub struct Transaction {
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum TransactionType {
+    /// Create new contract class.
+    Declare,
+
+    /// Create an instance of a contract which will have storage assigned. (Accounts are a contract themselves)
+    Deploy,
+
+    /// Execute a function from a deployed contract.
+    Invoke,
+
+    // TODO: Remove this when other transactions are implemented
     FunctionExecution {
         program: String,
         function: String,
         program_name: String,
-        enable_trace: bool,
     },
 }
 
@@ -49,58 +63,73 @@ impl Transaction {
 
 impl TransactionType {
     pub fn compute_and_hash(&self) -> Result<String> {
-        let mut hasher = Sha256::new();
-
         match self {
             TransactionType::FunctionExecution {
-                program: program_str,
+                program,
                 function,
                 program_name: _,
-                enable_trace: execute_trace,
             } => {
-                let program = Program::from_reader(program_str.as_bytes(), None)?;
-                let mut vm = VirtualMachine::new(*execute_trace);
+                let general_config = StarknetGeneralConfig::default();
 
-                let mut cairo_runner = CairoRunner::new(&program, "all", false)?;
+                let tx_execution_context = TransactionExecutionContext::create_for_testing(
+                    Address(0.into()),
+                    10,
+                    0.into(),
+                    general_config.invoke_tx_max_n_steps(),
+                    1,
+                );
 
-                let mut hint_processor = BuiltinHintProcessor::new_empty();
+                let contract_address = Address(1111.into());
+                let class_hash = [1; 32];
+                let contract_class = ContractClass::try_from(program.clone())
+                    .expect("Could not load contract from JSON");
 
-                let entrypoint = program
-                    .identifiers
-                    .get(&format!("__main__.{function}"))
-                    .and_then(|x| x.pc)
-                    .context("Error geting entrypoint function")?;
+                let contract_state = ContractState::new(
+                    class_hash,
+                    tx_execution_context.nonce().clone(),
+                    Default::default(),
+                );
+                let mut state_reader = InMemoryStateReader::new(HashMap::new(), HashMap::new());
+                state_reader
+                    .contract_states_mut()
+                    .insert(contract_address.clone(), contract_state);
 
-                cairo_runner.initialize_builtins(&mut vm)?;
-                cairo_runner.initialize_segments(&mut vm, None);
+                let mut state = CachedState::new(
+                    state_reader,
+                    Some([(class_hash, contract_class)].into_iter().collect()),
+                );
 
-                cairo_runner.run_from_entrypoint(
-                    entrypoint,
-                    &[
-                        &MaybeRelocatable::from(2).into(),
-                        &MaybeRelocatable::from((2, 0)).into(),
-                    ],
-                    false,
-                    &mut vm,
-                    &mut hint_processor,
-                )?;
-                cairo_runner.relocate(&mut vm).unwrap();
+                let entry_point = ExecutionEntryPoint::new(
+                    contract_address,
+                    vec![],
+                    Felt::from_bytes_be(&starknet_rs::utils::calculate_sn_keccak(
+                        function.as_bytes(),
+                    )),
+                    Address(0.into()),
+                    EntryPointType::External,
+                    CallType::Delegate.into(),
+                    class_hash.into(),
+                );
 
-                let trace = cairo_runner.relocated_trace;
+                let mut resources_manager = ExecutionResourcesManager::default();
 
-                match trace {
-                    Some(trace) => {
-                        for reg in trace {
-                            hasher.update(serde_json::to_string(&reg)?);
-                        }
-                    }
-                    None => info!("Trace not enabled, not executing/hashing"),
-                }
+                entry_point
+                    .execute(
+                        &mut state,
+                        &general_config,
+                        &mut resources_manager,
+                        &tx_execution_context,
+                    )
+                    .expect("Could not execute contract");
+
+                let mut hasher = Sha256::new();
                 hasher.update(function);
+                let hash = hasher.finalize().as_slice().to_owned();
+                Ok(hex::encode(hash))
             }
+            TransactionType::Declare => todo!(),
+            TransactionType::Deploy => todo!(),
+            TransactionType::Invoke => todo!(),
         }
-
-        let hash = hasher.finalize().as_slice().to_owned();
-        Ok(hex::encode(hash))
     }
 }

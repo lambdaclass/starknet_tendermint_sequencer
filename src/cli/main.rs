@@ -22,10 +22,6 @@ pub struct Cli {
     #[clap()]
     pub function_name: String,
 
-    /// Whether to enable trace on the transaction.
-    #[clap(default_value_t = false)]
-    pub enable_trace: bool,
-
     /// Output log lines to stdout based on the desired log level (RUST_LOG env var).
     #[clap(short, long, global = false, default_value_t = false)]
     pub verbose: bool,
@@ -53,18 +49,11 @@ async fn main() {
             .init();
     }
 
-    let (exit_code, output) = match run(
-        &cli.path,
-        &cli.function_name,
-        &cli.url,
-        cli.enable_trace,
-        cli.no_broadcast,
-    )
-    .await
-    {
-        Ok(output) => (0, output),
-        Err(err) => (1, format!("error: {err}")),
-    };
+    let (exit_code, output) =
+        match run(&cli.path, &cli.function_name, &cli.url, cli.no_broadcast).await {
+            Ok(output) => (0, output),
+            Err(err) => (1, format!("error: {err}")),
+        };
 
     println!("{output:#}");
     std::process::exit(exit_code);
@@ -74,7 +63,6 @@ async fn run(
     path: &PathBuf,
     function_name: &str,
     sequencer_url: &str,
-    enable_trace: bool,
     no_broadcast: bool,
 ) -> Result<String> {
     let program = fs::read_to_string(path)?;
@@ -87,7 +75,6 @@ async fn run(
             .expect("Error getting file name")
             .to_string_lossy()
             .to_string(),
-        enable_trace,
     };
     let transaction = Transaction::with_type(transaction_type)?;
 
