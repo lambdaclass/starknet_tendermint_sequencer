@@ -36,6 +36,7 @@ tendermint_config:
 	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(TENDERMINT_HOME)/config/config.toml
 	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(TENDERMINT_HOME)/config/config.toml
 	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's/prometheus = false/prometheus = true/g' $(TENDERMINT_HOME)/config/config.toml
 
 # remove the blockchain data
 reset: bin/tendermint
@@ -78,6 +79,7 @@ localnet_start:
 localnet_config:
 	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(TENDERMINT_HOME)/config/config.toml
 	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's/prometheus = false/prometheus = true/g' $(TENDERMINT_HOME)/config/config.toml
 	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
 	    eval "sed -i.bak 's/127.0.0.$$(($${n}+1)):26656/127.0.0.1:26$${n}56/g' $(TENDERMINT_HOME)/config/config.toml" ;\
 	done
