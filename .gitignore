@@ -15,3 +15,6 @@ bin/
 abci.*
 testnet/
 localnet/
+
+# Grafana local storage
+grafana-storage/
