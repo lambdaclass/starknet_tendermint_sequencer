@@ -53,11 +53,18 @@ async fn main() {
             .init();
     }
 
-    let (exit_code, output) = 
-        match run(&cli.path, &cli.function_name, &cli.url, cli.enable_trace, cli.no_broadcast).await {
-            Ok(output) => (0, output),
-            Err(err) => (1, format!("error: {err}")),
-        };
+    let (exit_code, output) = match run(
+        &cli.path,
+        &cli.function_name,
+        &cli.url,
+        cli.enable_trace,
+        cli.no_broadcast,
+    )
+    .await
+    {
+        Ok(output) => (0, output),
+        Err(err) => (1, format!("error: {err}")),
+    };
 
     println!("{output:#}");
     std::process::exit(exit_code);
@@ -92,8 +99,7 @@ async fn run(
         match broadcast(transaction_serialized, sequencer_url).await {
             Ok(_) => Ok(format!(
                 "Sent transaction (ID {}) succesfully. Hash: {}",
-                transaction.id,
-                transaction.transaction_hash
+                transaction.id, transaction.transaction_hash
             )),
             Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
         }
