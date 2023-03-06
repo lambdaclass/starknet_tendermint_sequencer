@@ -105,12 +105,15 @@ impl Application for CairoApp {
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
         // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
         unsafe {
+            info!(
+                "{} ms passed between begin_block() calls. {} transactions, {} tps",
+                (*TIMER).elapsed().as_millis(),
+            TRANSACTIONS,
+            (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
+        );
             TRANSACTIONS = 0;
 
-            info!(
-                "{} ms passed between previous begin_block() and current begin_block()",
-                (*TIMER).elapsed().as_millis()
-            );
+
 
             *TIMER = Instant::now();
         }

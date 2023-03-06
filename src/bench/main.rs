@@ -3,7 +3,7 @@ use lib::{Transaction, TransactionType};
 use std::net::SocketAddr;
 use std::time::Instant;
 use tendermint_rpc::{Client, HttpClient};
-use tracing::{info, trace};
+use tracing::{info, metadata::LevelFilter};
 use tracing_subscriber::util::SubscriberInitExt;
 use uuid::Uuid;
 
@@ -36,6 +36,9 @@ async fn main() {
     tracing_subscriber::fmt()
         // Use a more compact, abbreviated log format
         .compact()
+        // Display the thread ID an event was recorded on
+        .with_thread_ids(true)
+        .with_max_level(LevelFilter::INFO)
         // Build and init the subscriber
         .finish()
         .init();
@@ -97,6 +100,7 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
         clients.push(HttpClient::new(url.as_str()).unwrap());
     }
 
+    let n_transactions = transactions.len(); 
     // for each transaction in this thread, send transactions in a round robin fashion to each node
     for (i, t) in transactions.into_iter().enumerate() {
         let tx: tendermint::abci::Transaction = t.into();
@@ -117,5 +121,5 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
             }
         }
     }
-    trace!("time doing transactions: {}", time.elapsed().as_millis());
+    info!("transactions sent: {} in {} ms", n_transactions, time.elapsed().as_millis());
 }
