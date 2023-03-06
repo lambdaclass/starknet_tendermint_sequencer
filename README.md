@@ -112,5 +112,8 @@ Check [tm-load-test](https://github.com/informalsystems/tm-load-test) and [Tende
 * [ABCI overview](https://docs.tendermint.com/v0.34/introduction/what-is-tendermint.html#abci-overview)
 * [ABCI v0.34 reference](https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/abci.md)
 * [About why app hash is needed](https://github.com/tendermint/tendermint/issues/1179). Also [this](https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#query-proofs).
-* [Starknet State](https://docs.starknet.io/documentation/architecture_and_concepts/State/starknet-state/)
 * [About Tendermint 0.34's future](https://github.com/tendermint/tendermint/issues/9972)
+### Starknet
+* [Starknet State](https://docs.starknet.io/documentation/architecture_and_concepts/State/starknet-state/)
+* [Starknet architecture](https://david-barreto.com/starknets-architecture-review/)
+* [Starknet transaction lifecylce](https://docs.starknet.io/documentation/architecture_and_concepts/Blocks/transaction-life-cycle/)
