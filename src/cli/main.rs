@@ -3,6 +3,7 @@ use clap::Parser;
 use lib::{Transaction, TransactionType};
 use std::fs;
 use std::path::PathBuf;
+use std::str;
 use tendermint_rpc::{Client, HttpClient};
 use tracing::debug;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -29,6 +30,10 @@ pub struct Cli {
     #[clap(short, long, global = false, default_value_t = false)]
     pub verbose: bool,
 
+    /// Just run the program and return the transaction in the stdio
+    #[clap(short, long, global = false, default_value_t = false)]
+    pub no_broadcast: bool,
+
     /// tendermint node url
     #[clap(short, long, env = "SEQUENCER_URL", default_value = LOCAL_SEQUENCER_URL)]
     pub url: String,
@@ -48,11 +53,18 @@ async fn main() {
             .init();
     }
 
-    let (exit_code, output) =
-        match run(&cli.path, &cli.function_name, &cli.url, cli.enable_trace).await {
-            Ok(output) => (0, output),
-            Err(err) => (1, format!("error: {err}")),
-        };
+    let (exit_code, output) = match run(
+        &cli.path,
+        &cli.function_name,
+        &cli.url,
+        cli.enable_trace,
+        cli.no_broadcast,
+    )
+    .await
+    {
+        Ok(output) => (0, output),
+        Err(err) => (1, format!("error: {err}")),
+    };
 
     println!("{output:#}");
     std::process::exit(exit_code);
@@ -63,6 +75,7 @@ async fn run(
     function_name: &str,
     sequencer_url: &str,
     enable_trace: bool,
+    no_broadcast: bool,
 ) -> Result<String> {
     let program = fs::read_to_string(path)?;
 
@@ -80,12 +93,16 @@ async fn run(
 
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
 
-    match broadcast(transaction_serialized, sequencer_url).await {
-        Ok(_) => Ok(format!(
-            "Sent transaction (ID {}) succesfully. Hash: {}",
-            transaction.id, transaction.transaction_hash
-        )),
-        Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
+    if no_broadcast {
+        Ok(str::from_utf8(&transaction_serialized).unwrap().to_string())
+    } else {
+        match broadcast(transaction_serialized, sequencer_url).await {
+            Ok(_) => Ok(format!(
+                "Sent transaction (ID {}) succesfully. Hash: {}",
+                transaction.id, transaction.transaction_hash
+            )),
+            Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
+        }
     }
 }
 

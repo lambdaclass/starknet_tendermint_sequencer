@@ -52,6 +52,58 @@ Time it took for all transactions to be delivered: 1308 ms
 ```
 
 Note that this is the time for all transactions to return (ie; validation that they have entered the mempool), but no assumptions can be made in terms of transaction finality.
+
+### Benchmarking with Tendermint Load Testing Framework
+
+There is an alternate way to benchmark the app: using [tm-load-test](https://github.com/informalsystems/tm-load-test). In order to do that there is a load_test command written in go in `/bench` directory. This needs Go v1.12 at least to be built.
+
+To build it:
+
+```bash
+cd bench
+go build -o ./build/load_test ./cmd/load_test/main.go
+```
+
+and once built move back to root directory and use 
+
+```bash
+./bench/build/load_test -c 10 -T 10 -r 1000 -s 250 --broadcast-tx-method async --endpoints ws://localhost:26657/websocket --stats-output result.csv
+```
+
+to run it against a local tendermint+abci node.
+
+`-c` is the amount of connectios per endpoint
+
+`-T` is the amount of seconds to run the test
+
+`-r` is the rate of tx per second to send
+
+`-s` is the maximum size of a transaction to be sent.
+
+Run 
+```bash
+./bench/build/load_test -h
+```
+to get further information.
+
+In result.csv there will be a summary of the operation. eg:
+```bash
+> cat result.csv
+Parameter,Value,Units
+total_time,10.875,seconds
+total_txs,55249,count
+total_bytes,1242747923,bytes
+avg_tx_rate,5080.169436,transactions per second
+avg_data_rate,114271208.808144,bytes per second
+```
+
+To run it against a cluster, several nodes can be provided in `--endpoints` parameter. eg:
+```bash
+./bench/build/load_test -c 5 -T 10 -r 1000 -s 250 --broadcast-tx-method async --endpoints ws://5.9.57.45:26657/websocket,ws://5.9.57.44:26657/websocket,ws://5.9.57.89:26657/websocket --stats-output result.csv
+```
+
+Check [tm-load-test](https://github.com/informalsystems/tm-load-test) and [Tendermint Load Testing Framework](https://github.com/informalsystems/tm-load-test/tree/main/pkg/loadtest) and for more information.
+
 ## Reference links
 * [Starknet sequencer](https://www.starknet.io/de/posts/engineering/starknets-new-sequencer#:~:text=What%20does%20the%20sequencer%20do%3F)
 * [Papyrus Starknet full node](https://medium.com/starkware/papyrus-an-open-source-starknet-full-node-396f7cd90202)
