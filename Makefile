@@ -1,4 +1,4 @@
-.PHONY: tendermint reset abci cli tendermint_config tendermint_install
+.PHONY: tendermint reset abci cli tendermint_config tendermint_install rollkit rollkit_build
 
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 
@@ -99,9 +99,7 @@ clippy:
 .PHONY: clippy
 
 rollkit_build:
-	cd rollkit-node;
-	go build
+	(cd rollkit-node;go build)
 
-rollkit: rollkit_build
-	NAMESPACE_ID=$(echo $RANDOM | md5sum | head -c 16; echo;)
-	./rollkit-node/rollkit-node -config "$HOME/.tendermint/config/config.toml" -rollkit.namespace_id $NAMESPACE_ID -rollkit.da_start_height 1
+celestia:
+	(cd local-da; docker compose -f ./docker/test-docker-compose.yml up)
