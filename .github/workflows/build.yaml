@@ -58,4 +58,5 @@ jobs:
         with:
             toolchain: stable
             components: clippy
-      - run: make clippy
+      - working-directory: /sequencer 
+        run: make clippy

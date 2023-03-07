@@ -22,39 +22,35 @@ make tendermint_install
 bin/tendermint init
 ```
 
+Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see following section).
+
 Build and run Rollkit.
 
 ```sh
-cd rollkit-node
-go build
-NAMESPACE_ID=$(echo $RANDOM | md5sum | head -c 16; echo;)
-./rollkit-node -config "/Users/ignacio/.tendermint/config/config.toml" -rollkit.namespace_id $NAMESPACE_ID -rollkit.da_start_height 1
+make rollkit
 ```
 
 ### Sequencer (app layer)
 
 ```sh
-cd sequencer
 make abci
 ```
 
-## Overview
+At this point you have a DA layer, the application layer (sequencer ABCI) and rollkit running as a replacement for Tendermint.
 
-At this point you have a DA layer, the application layer (sequencer ABCI) and rollit running as a replacement for Tendermint.
+### Running ABCI + Tendermint 
 
-You can also opt to run the sequencer ABCI with Tendermint by just running those two binaries.
+You can also alternatively opt to run the sequencer ABCI with Tendermint by just running those two binaries.
 
 Run Tendermint Core node on a terminal:
 
 ```bash
-cd sequencer
 make node
 ```
 
 Run the ABCI sequencer application:
 
 ```bash
-cd sequencer
 make abci
 ```
 In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
@@ -64,7 +60,6 @@ In order to reset Tendermint's state before rerunning it, make sure you run `mak
 To send executions to the sequencer you need to have a compiled Cairo program (*.json files in the repo). Then you can send them like so:
 
 ```bash
-cd sequencer
 cargo run --release programs/fibonacci.json main
 ```
 

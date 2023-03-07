@@ -1,3 +1,6 @@
 /bin/
 rollkit-node/rollkit-node
 /target
+.DS_Store
+
+abci.height

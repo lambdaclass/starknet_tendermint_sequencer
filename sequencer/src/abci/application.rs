@@ -258,10 +258,12 @@ impl StarknetApp {
             hasher: Arc::new(Mutex::new(Sha256::new())),
             starknet_state: StarknetState::new(None),
         };
+        let height_file = HeightFile::read_or_create();
 
         info!(
-            "Starting with Starknet State: {:?}",
-            new_state.starknet_state
+            "Starting with Starknet State: {:?}. Height file has value: {}",
+            new_state.starknet_state,
+            height_file
         );
         new_state
     }
