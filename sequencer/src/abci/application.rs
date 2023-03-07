@@ -262,8 +262,7 @@ impl StarknetApp {
 
         info!(
             "Starting with Starknet State: {:?}. Height file has value: {}",
-            new_state.starknet_state,
-            height_file
+            new_state.starknet_state, height_file
         );
         new_state
     }
