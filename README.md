@@ -1,42 +1,79 @@
-# Tendermint-based Starknet Sequencer
+# Celestia rollup for Tendermint-based Starknet sequencer 
+
+Sequencer for Starknet based in Tendermint and [starknet-in-rust](https://github.com/lambdaclass/starknet_in_rust).
+
+## Getting started: Running the rollup
+
+### Data availability (DA) layer
+
+On a terminal, run Celestia consensus and DA bridge nodes.
+
+```sh
+cd local-da
+docker compose -f ./docker/test-docker-compose.yml up
+```
+
+### Rollkit
+
+Install `Tendermint` and initialize it. This will initialize the required files that rollkit will use when running:
+
+```sh
+make tendermint_install
+bin/tendermint init
+```
+
+Build and run Rollkit.
+
+```sh
+cd rollkit-node
+go build
+NAMESPACE_ID=$(echo $RANDOM | md5sum | head -c 16; echo;)
+./rollkit-node -config "/Users/ignacio/.tendermint/config/config.toml" -rollkit.namespace_id $NAMESPACE_ID -rollkit.da_start_height 1
+```
+
+### Sequencer (app layer)
+
+```sh
+cd sequencer
+make abci
+```
 
 ## Overview
 
-Sequencer for Starknet based in Tendermint and Cairo-rs.
+At this point you have a DA layer, the application layer (sequencer ABCI) and rollit running as a replacement for Tendermint.
 
-## Getting started
-
-Install Tendermint Core and store it in `/bin`
-```bash
-make bin/tendermint
-```
+You can also opt to run the sequencer ABCI with Tendermint by just running those two binaries.
 
 Run Tendermint Core node on a terminal:
 
 ```bash
+cd sequencer
 make node
 ```
 
 Run the ABCI sequencer application:
 
 ```bash
+cd sequencer
 make abci
 ```
 In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
 
-### Send an execution
+### Sending a transaction
 
 To send executions to the sequencer you need to have a compiled Cairo program (*.json files in the repo). Then you can send them like so:
 
 ```bash
+cd sequencer
 cargo run --release programs/fibonacci.json main
 ```
 
 ### Benchmark
 
-You can run a benchmark
+You can run a benchmark with
 
 ```bash
+cd sequencer
 cargo run --release --bin bench -- --nodes "{list-of-nodes}" --threads 4 --transactions-per-thread 1000
 ```
 

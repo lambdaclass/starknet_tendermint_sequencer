@@ -1,0 +1,50 @@
+[package]
+name = "starknet-sequencer"
+version = "0.1.0"
+edition = "2021"
+default-run = "cli"
+
+[[bin]]
+path = "src/cli/main.rs"
+doctest = false
+name =  "cli"
+
+[[bin]]
+path = "src/abci/main.rs"
+name =  "abci"
+
+[[bin]]
+path = "src/bench/main.rs"
+name =  "bench"
+
+[lib]
+path = "src/lib/mod.rs"
+doctest = false
+name =  "lib"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.66"
+bincode = "1.3.3"
+clap = { version = "4.0.5", features = ["derive", "env"] }
+once_cell = "*"
+futures = "0.3.26"
+hex = "0.4.3"
+sha2 = "0.10.6"
+serde = "1.0"
+serde_json = { version = "1.0", features = ["raw_value"] }
+tendermint = "0.25.0"
+tendermint-abci = "0.25.0"
+tendermint-proto = { version = "0.25.0", default-features = false }
+tendermint-rpc = { version = "0.25.0", features = ["http-client"] }
+
+tracing = "0.1"
+tracing-subscriber = {version = "0.3", features = ["env-filter", "fmt", "std"]}
+tokio = { version = "1.15.0", features = ["full"] }
+uuid = { version = "1.2.1", features = ["v4"] }
+    tower              = { version = "0.4.13", features = [ "full" ] }
+    tower-abci         = "0.5.0"
+    starknet-rs = { git = "https://github.com/lambdaclass/starknet_in_rust", branch= "publish-structs" }
+# This was copied from starkent_in_rust/Cargo.toml as it seems it is missing an export for it
+felt = { git = "https://github.com/lambdaclass/cairo-rs", package = "cairo-felt", rev = "8dba86dbec935fa04a255e2edf3d5d184950fa22" }
