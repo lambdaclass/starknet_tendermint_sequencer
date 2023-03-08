@@ -35,7 +35,6 @@ pub enum TransactionType {
 
     // TODO: Remove this when other transactions are implemented
     FunctionExecution {
-        program: String,
         function: String,
         program_name: String,
     },
@@ -65,7 +64,6 @@ impl TransactionType {
     pub fn compute_and_hash(&self) -> Result<String> {
         match self {
             TransactionType::FunctionExecution {
-                program,
                 function,
                 program_name: _,
             } => {
@@ -81,7 +79,8 @@ impl TransactionType {
 
                 let contract_address = Address(1111.into());
                 let class_hash = [1; 32];
-                let contract_class = ContractClass::try_from(program.clone())
+                let program = include_str!("../../programs/fibonacci.json");
+                let contract_class = ContractClass::try_from(program.to_string())
                     .expect("Could not load contract from JSON");
 
                 let contract_state = ContractState::new(

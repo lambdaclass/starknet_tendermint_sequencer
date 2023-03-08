@@ -31,6 +31,8 @@ NAMESPACE_ID=$(echo $RANDOM | md5sum | head -c 16; echo;)
 ./rollkit-node/rollkit-node -config "$HOME/.tendermint/config/config.toml" -rollkit.namespace_id $NAMESPACE_ID -rollkit.da_start_height 1
 ```
 
+Note that the above code requires `md5sum` binary to be avaliable in order to generate a random namespace ID.
+
 ### Sequencer (app layer)
 
 ```sh

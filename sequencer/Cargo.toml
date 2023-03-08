@@ -36,7 +36,7 @@ serde = "1.0"
 serde_json = { version = "1.0", features = ["raw_value"] }
 tendermint = "0.25.0"
 tendermint-abci = "0.25.0"
-tendermint-proto = { version = "0.25.0", default-features = false }
+tendermint-proto = { version = "0.25.0", defaultt-features = false }
 tendermint-rpc = { version = "0.25.0", features = ["http-client"] }
 tracing = "0.1"
 tracing-subscriber = {version = "0.3", features = ["env-filter", "fmt", "std"]}

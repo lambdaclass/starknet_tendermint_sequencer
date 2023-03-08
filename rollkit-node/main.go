@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	rollconf "github.com/celestiaorg/rollmint/config"
-	rollconv "github.com/celestiaorg/rollmint/conv"
-	rollnode "github.com/celestiaorg/rollmint/node"
-	rollrpc "github.com/celestiaorg/rollmint/rpc"
+	rollconf "github.com/rollkit/rollkit/config"
+	rollconv "github.com/rollkit/rollkit/conv"
+	rollnode "github.com/rollkit/rollkit/node"
+	rollrpc "github.com/rollkit/rollkit/rpc"
 	"github.com/spf13/viper"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
@@ -50,11 +50,9 @@ func init() {
 	flag.BoolVar(&aggregator, "rollkit.aggregator", true, "run node on aggregator mode or not")
 	flag.StringVar(&daLayer, "rollkit.da_layer", "celestia", "data availability layer to use")
 	flag.StringVar(&daConfig, "rollkit.da_config", `{"base_url":"http://localhost:26659","timeout":60000000000,"gas_limit":6000000,"fee":6000}`, "configuration to use for the data availability layer")
-
 }
 
 func main() {
-
 	flag.Parse()
 	if help {
 		flag.Usage()
@@ -77,7 +75,7 @@ func main() {
 		node.Start()
 		defer func() {
 			node.Stop()
-			node.Wait()
+			// node.Wait()
 		}()
 
 		c := make(chan os.Signal, 1)
@@ -87,7 +85,7 @@ func main() {
 	}
 }
 
-func newRollup(app abci.Application, configFile string) (*rollnode.Node, *rollrpc.Server, error) {
+func newRollup(app abci.Application, configFile string) (rollnode.Node, *rollrpc.Server, error) {
 	// read config
 	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(configFile))
@@ -106,6 +104,7 @@ func newRollup(app abci.Application, configFile string) (*rollnode.Node, *rollrp
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// translate tendermint config to rollkit config
 	nodeConfig := rollconf.NodeConfig{
 		Aggregator: true,

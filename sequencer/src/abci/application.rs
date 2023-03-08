@@ -80,7 +80,6 @@ impl Application for StarknetApp {
 
         match tx.transaction_type {
             TransactionType::FunctionExecution {
-                program: _,
                 function,
                 program_name,
             } => {
@@ -158,7 +157,6 @@ impl Application for StarknetApp {
 
                 match tx.transaction_type {
                     TransactionType::FunctionExecution {
-                        program: _program,
                         function,
                         program_name: _,
                     } => {
@@ -280,8 +278,8 @@ impl HeightFile {
             // if contents are not readable, crash intentionally
             bincode::deserialize(&bytes).expect("Contents of height file are not readable")
         } else {
-            std::fs::write(Self::PATH, bincode::serialize(&0i64).unwrap()).unwrap();
-            0i64
+            std::fs::write(Self::PATH, bincode::serialize(&1i64).unwrap()).unwrap();
+            1i64
         }
     }
 

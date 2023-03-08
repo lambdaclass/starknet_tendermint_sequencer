@@ -68,7 +68,6 @@ async fn run(
     let program = fs::read_to_string(path)?;
 
     let transaction_type = TransactionType::FunctionExecution {
-        program,
         function: function_name.to_owned(),
         program_name: path
             .file_name()

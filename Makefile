@@ -1,4 +1,4 @@
-.PHONY: tendermint reset abci cli tendermint_config tendermint_install rollkit rollkit_build
+.PHONY: tendermint reset abci cli tendermint_config tendermint_install rollkit_celestia bitcoin celestia
 
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 
@@ -98,8 +98,20 @@ clippy:
 	cargo clippy --all-targets --all-features -- -D warnings
 .PHONY: clippy
 
-rollkit_build:
-	(cd rollkit-node;go build)
 
 celestia:
 	(cd local-da; docker compose -f ./docker/test-docker-compose.yml up)
+
+rollkit_celestia:
+	(cd rollkit-node;go build)
+	export NAMESPACE_ID=$$(echo $$RANDOM | md5sum | head -c 16; echo;) ;\
+	./rollkit-node/rollkit-node -config "$$HOME/.tendermint/config/config.toml" -rollkit.namespace_id $$NAMESPACE_ID -rollkit.da_start_height 1
+
+rollkit_bitcoin:
+	(cd rollkit-node;go build)
+	export NAMESPACE_ID=$$(echo $$RANDOM | md5sum | head -c 16; echo;) ;\
+	./rollkit-node/rollkit-node -config "$$HOME/.tendermint/config/config.toml" -rollkit.aggregator true -rollkit.da_layer bitcoin -rollkit.da_config='{"host":"127.0.0.1:18332","user":"rpcuser","pass":"rpcpass","http_post_mode":true,"disable_tls":true}' -rollkit.namespace_id $$NAMESPACE_ID -rollkit.da_start_height 1
+
+bitcoin:
+	./bitcoin/start-daemon.sh &
+	./bitcoin/run.sh 
