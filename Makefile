@@ -29,7 +29,7 @@ tendermint_install:
 
 # Run a tendermint node, installing it if necessary
 node: tendermint_config
-	bin/tendermint node --consensus.create_empty_blocks_interval="30s"
+	bin/tendermint node
 
 # Override a tendermint node's default configuration. NOTE: we should do something more declarative if we need to update more settings.
 tendermint_config:
@@ -71,7 +71,7 @@ localnet: bin/tendermint cli
 localnet_start: NODE:=0
 localnet_start: HOMEDIR:=localnet
 localnet_start:
-	bin/tendermint node --home ./$(HOMEDIR)/node$(NODE) --consensus.create_empty_blocks_interval="90s" &
+	bin/tendermint node --home ./$(HOMEDIR)/node$(NODE) &
 	cd ./$(HOMEDIR)/node$(NODE)/abci; cargo run --release --bin abci -- --port 26$(NODE)58
 .PHONY: localnet_start
 
