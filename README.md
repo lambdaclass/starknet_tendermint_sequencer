@@ -2,7 +2,7 @@
 
 Sequencer for Starknet based in Tendermint and [starknet-in-rust](https://github.com/lambdaclass/starknet_in_rust).
 
-## Getting started: Running the rollup
+## Option 1: Running the rollup with a rollkit
 
 ### Data availability (DA) layer
 
@@ -21,14 +21,12 @@ make tendermint_install
 bin/tendermint init
 ```
 
-Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see following section).
+Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see Option 3).
 
 Build and run Rollkit.
 
 ```sh
-make rollkit_build
-NAMESPACE_ID=$(echo $RANDOM | md5sum | head -c 16; echo;)
-./rollkit-node/rollkit-node -config "$HOME/.tendermint/config/config.toml" -rollkit.namespace_id $NAMESPACE_ID -rollkit.da_start_height 1
+make rollkit_celestia
 ```
 
 Note that the above code requires `md5sum` binary to be avaliable in order to generate a random namespace ID.
@@ -39,9 +37,57 @@ Note that the above code requires `md5sum` binary to be avaliable in order to ge
 make abci
 ```
 
+At this point you have a DA layer, the application layer (sequencer ABCI) and rollkit running as a replacement for Tendermint. You can send transactions to rollkit and see them go to the ABCI and the DA layer.
+
+## Option 2: Running the rollup for Bitcoin
+
+Note: This requires `bitcoin-cli` and `bitcoind` to be installed. See [the original guide](https://rollkit.dev/docs/tutorials/bitcoin/) for more information.
+### DA Layer
+
+What we need to do to run this is generate a wallet and run the daemon. For this, run
+
+```sh
+make bitcoin
+```
+
+This runs `./bitcoin/start-daemon.sh` and `./bitcoin/run.sh`. Bitcoin acts as the DA layer.
+
+### Sequencer (app layer)
+
+On another terminal, run the ABCI.
+
+```sh
+make abci
+```
+
+### Rollkit
+
+If Tendermint is not installed, install and initialize it. This will initialize the required files that rollkit will use when running:
+
+```sh
+make tendermint_install
+bin/tendermint init
+```
+
+Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see following section).
+
+Build and run Rollkit with Bitcoin DA layer.
+
+```sh
+# requires md5sum 
+make rollkit_bitcoin
+```
+
+### Sequencer (app layer)
+
+```sh
+make abci
+```
+
 At this point you have a DA layer, the application layer (sequencer ABCI) and rollkit running as a replacement for Tendermint.
 
-### Running ABCI + Tendermint 
+
+## Option 3: Running ABCI + Tendermint 
 
 You can also alternatively opt to run the sequencer ABCI with Tendermint by just running those two binaries.
 

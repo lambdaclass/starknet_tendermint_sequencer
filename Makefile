@@ -108,9 +108,9 @@ rollkit_celestia:
 	./rollkit-node/rollkit-node -config "$$HOME/.tendermint/config/config.toml" -rollkit.namespace_id $$NAMESPACE_ID -rollkit.da_start_height 1
 
 rollkit_bitcoin:
-	(cd rollkit-node;go build)
+	(cd rollkit-node-bitcoin;go build)
 	export NAMESPACE_ID=$$(echo $$RANDOM | md5sum | head -c 16; echo;) ;\
-	./rollkit-node/rollkit-node -config "$$HOME/.tendermint/config/config.toml" -rollkit.aggregator true -rollkit.da_layer bitcoin -rollkit.da_config='{"host":"127.0.0.1:18332","user":"rpcuser","pass":"rpcpass","http_post_mode":true,"disable_tls":true}' -rollkit.namespace_id $$NAMESPACE_ID -rollkit.da_start_height 1
+	./rollkit-node-bitcoin/rollkit-node-bitcoin -config "$$HOME/.tendermint/config/config.toml" -rollkit.aggregator true -rollkit.da_layer bitcoin -rollkit.da_config='{"host":"127.0.0.1:18332","user":"rpcuser","pass":"rpcpass","http_post_mode":true,"disable_tls":true}' -rollkit.namespace_id $$NAMESPACE_ID -rollkit.da_start_height 1
 
 bitcoin:
 	./bitcoin/start-daemon.sh &
