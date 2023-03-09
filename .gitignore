@@ -1,6 +1,6 @@
 /bin/
-rollkit-node/rollkit-node
-rollkit-node-bitcoin/rollkit-node-bitcoin
+/rollkit-node/rollkit-node
+/rollkit-node-bitcoin/rollkit-node-bitcoin
 /target
 .DS_Store
 
