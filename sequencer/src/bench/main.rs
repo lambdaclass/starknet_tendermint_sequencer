@@ -44,7 +44,7 @@ async fn main() {
         .init();
 
     // prepare transactions
-    let program = include_str!("../../programs/fibonacci.json").to_string();
+    let _program = include_str!("../../programs/fibonacci.json").to_string();
 
     let transaction_type = TransactionType::FunctionExecution {
         function: "main".to_string(),

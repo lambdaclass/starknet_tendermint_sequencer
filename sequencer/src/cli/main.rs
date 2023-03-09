@@ -65,7 +65,7 @@ async fn run(
     sequencer_url: &str,
     no_broadcast: bool,
 ) -> Result<String> {
-    let program = fs::read_to_string(path)?;
+    let _program = fs::read_to_string(path)?;
 
     let transaction_type = TransactionType::FunctionExecution {
         function: function_name.to_owned(),
