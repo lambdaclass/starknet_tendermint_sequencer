@@ -17,7 +17,7 @@ use tracing::{debug, info};
 /// a channel for the parts that require knowledge of the application state and the Cairo details.
 /// For reference see https://docs.tendermint.com/v0.34/introduction/what-is-tendermint.html#abci-overview
 #[derive(Debug, Clone)]
-pub struct CairoApp {
+pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
     starknet_state: StarknetState,
 }
@@ -28,7 +28,7 @@ pub struct CairoApp {
 static mut TRANSACTIONS: usize = 0;
 static mut TIMER: Lazy<Instant> = Lazy::new(Instant::now);
 
-impl Application for CairoApp {
+impl Application for StarknetApp {
     /// This hook is called once upon genesis. It's used to load a default set of records which
     /// make the initial distribution of credits in the system.
     fn init_chain(&self, _request: abci::RequestInitChain) -> abci::ResponseInitChain {
@@ -80,7 +80,6 @@ impl Application for CairoApp {
 
         match tx.transaction_type {
             TransactionType::FunctionExecution {
-                program: _,
                 function,
                 program_name,
             } => {
@@ -158,7 +157,6 @@ impl Application for CairoApp {
 
                 match tx.transaction_type {
                     TransactionType::FunctionExecution {
-                        program: _program,
                         function,
                         program_name: _,
                     } => {
@@ -251,17 +249,18 @@ impl Application for CairoApp {
     }
 }
 
-impl CairoApp {
+impl StarknetApp {
     /// Constructor.
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
             starknet_state: StarknetState::new(None),
         };
+        let height_file = HeightFile::read_or_create();
 
         info!(
-            "Starting with Starknet State: {:?}",
-            new_state.starknet_state
+            "Starting with Starknet State: {:?}. Height file has value: {}",
+            new_state.starknet_state, height_file
         );
         new_state
     }
@@ -279,8 +278,8 @@ impl HeightFile {
             // if contents are not readable, crash intentionally
             bincode::deserialize(&bytes).expect("Contents of height file are not readable")
         } else {
-            std::fs::write(Self::PATH, bincode::serialize(&0i64).unwrap()).unwrap();
-            0i64
+            std::fs::write(Self::PATH, bincode::serialize(&1i64).unwrap()).unwrap();
+            1i64
         }
     }
 

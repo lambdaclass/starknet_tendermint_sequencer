@@ -1,6 +1,4 @@
-//! In-memory key/value store application for Tendermint.
-
-use application::CairoApp;
+use application::StarknetApp;
 use clap::Parser;
 use tendermint_abci::ServerBuilder;
 use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt};
@@ -55,7 +53,7 @@ fn main() {
 
     subscriber.init();
 
-    let app = CairoApp::new();
+    let app = StarknetApp::new();
     let server = ServerBuilder::new(cli.read_buf_size)
         .bind(format!("{}:{}", cli.host, cli.port), app)
         .unwrap();
