@@ -115,3 +115,4 @@ rollkit_bitcoin:
 bitcoin:
 	./bitcoin/start-daemon.sh &
 	./bitcoin/run.sh 
+	
