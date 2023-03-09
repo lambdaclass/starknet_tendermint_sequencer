@@ -15,6 +15,7 @@ bin/
 abci.*
 testnet/
 localnet/
+./tendermint-install
 
 # Grafana local storage
 grafana-storage/
