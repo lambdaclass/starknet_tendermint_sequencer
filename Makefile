@@ -39,9 +39,15 @@ tendermint_config:
 	sed -i.bak 's/prometheus = false/prometheus = true/g' $(TENDERMINT_HOME)/config/config.toml
 
 # remove the blockchain data
-reset: bin/tendermint
+reset_tm: bin/tendermint
 	bin/tendermint unsafe_reset_all
 	rm -rf abci.height
+
+reset_cometbft:
+	bin/cometbft unsafe_reset_all
+	rm -rf abci.height
+
+reset: reset_tm
 
 # run the Cairo tendermint application
 abci:

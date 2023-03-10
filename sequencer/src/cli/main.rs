@@ -95,8 +95,7 @@ async fn run(
 pub async fn broadcast(transaction: Vec<u8>, url: &str) -> Result<()> {
     let client = HttpClient::new(url).unwrap();
 
-    let tx: tendermint::abci::Transaction = transaction.into();
-    let response = client.broadcast_tx_sync(tx).await?;
+    let response = client.broadcast_tx_sync(transaction).await?;
 
     debug!("Response from CheckTx: {:?}", response);
     match response.code {
