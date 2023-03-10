@@ -1,4 +1,6 @@
 use std::{
+    env,
+    process::Command,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -88,6 +90,16 @@ impl Application for StarknetApp {
                     function, program_name
                 );
             }
+            TransactionType::FunctionExecutionProver {
+                program: _,
+                function,
+                program_name,
+            } => {
+                info!(
+                    "Received execution transaction. Function: {}, program {}",
+                    function, program_name
+                );
+            }
             TransactionType::Declare => todo!(),
             TransactionType::Deploy => todo!(),
             TransactionType::Invoke => todo!(),
@@ -169,6 +181,33 @@ impl Application for StarknetApp {
                             }],
                         };
                         events.push(function_event);
+                    }
+                    TransactionType::FunctionExecutionProver {
+                        program,
+                        function,
+                        program_name,
+                    } => {
+                        let function_event = abci::Event {
+                            r#type: "function".to_string(),
+                            attributes: vec![abci::EventAttribute {
+                                key: "function".to_string().into_bytes(),
+                                value: function.into_bytes(),
+                                index: true,
+                            }],
+                        };
+                        events.push(function_event);
+
+                        let mut filepath = env::temp_dir();
+                        filepath.push(program_name);
+                        std::fs::write(filepath.clone(), program).expect("Failed to write to file");
+                        let output = Command::new("cairo-sharp")
+                            .args(["submit", "--source", filepath.to_str().unwrap()])
+                            .output()
+                            .expect("Error running cairo-sharp");
+                        info!(
+                            "cairo-sharp: {}",
+                            std::str::from_utf8(&output.stdout).unwrap()
+                        );
                     }
                     TransactionType::Declare => todo!(),
                     TransactionType::Deploy => todo!(),
