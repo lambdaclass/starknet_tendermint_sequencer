@@ -102,10 +102,9 @@ async fn run(transactions: Vec<Vec<u8>>, nodes: &Vec<SocketAddr>) {
     let n_transactions = transactions.len();
     // for each transaction in this thread, send transactions in a round robin fashion to each node
     for (i, t) in transactions.into_iter().enumerate() {
-        let tx: tendermint::abci::Transaction = t.into();
 
         let c = clients.get(i % clients.len()); // get destination node
-        let response = c.unwrap().broadcast_tx_async(tx).await;
+        let response = c.unwrap().broadcast_tx_async(t).await;
 
         match &response {
             Ok(_) => {}
