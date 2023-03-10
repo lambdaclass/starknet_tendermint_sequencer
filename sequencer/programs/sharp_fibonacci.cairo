@@ -3,7 +3,8 @@
 func main(output_ptr: felt*) -> (output_ptr: felt*) {
     // Call fib(1, 1, 10).
     let result: felt = fib(1, 1, 500);
-    return (output_ptr=output_ptr);
+    assert [output_ptr] = result;
+    return (output_ptr=output_ptr+1);
 }
 
 func fib(first_element, second_element, n) -> (res: felt) {
