@@ -67,7 +67,6 @@ abci:
 test:
 	RUST_BACKTRACE=full cargo test --release -- --nocapture --test-threads=4
 
-
 # Initialize the consensus configuration for a localnet of the given amount of validators
 localnet: VALIDATORS:=4
 localnet: ADDRESS:=127.0.0.1
