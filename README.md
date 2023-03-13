@@ -17,7 +17,7 @@ make celestia
 Install `Tendermint` and initialize it. This will initialize the required files that rollkit will use when running:
 
 ```sh
-make tendermint_install
+make consensus_install
 bin/tendermint init
 ```
 
@@ -65,7 +65,7 @@ make abci
 If Tendermint is not installed, install and initialize it. This will initialize the required files that rollkit will use when running:
 
 ```sh
-make tendermint_install
+make consensus_install
 bin/tendermint init
 ```
 
@@ -111,6 +111,23 @@ To send executions to the sequencer you need to have a compiled Cairo program (*
 ```bash
 cargo run --release programs/fibonacci.json main
 ```
+
+### Running [CometBFT](https://github.com/cometbft/cometbft) instead of Tendermint
+
+Current code can be run with both Tendermint and CometBFT (up to version 0.34.27). In order to use CometBFT the make command should include the `CONSENSUS` variable:
+
+```bash
+make node CONSENSUS=cometbft
+```
+
+This will run CometBFT instead of Tendermint (and also will install and configure it if not present).
+
+Also
+
+```bash
+make consensus_intall CONSENSUS=cometbft
+```
+will run the CometBFT installation script
 
 ### Benchmark
 
@@ -192,6 +209,7 @@ Check [tm-load-test](https://github.com/informalsystems/tm-load-test) and [Tende
 * [tendermint-rs](https://github.com/informalsystems/tendermint-rs)
 * [ABCI overview](https://docs.tendermint.com/v0.34/introduction/what-is-tendermint.html#abci-overview)
 * [ABCI v0.34 reference](https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/abci.md)
+* [CometBFT](https://github.com/cometbft/cometbft)
 * [About why app hash is needed](https://github.com/tendermint/tendermint/issues/1179). Also [this](https://github.com/tendermint/tendermint/blob/v0.34.x/spec/abci/apps.md#query-proofs).
 * [About Tendermint 0.34's future](https://github.com/tendermint/tendermint/issues/9972)
 ### Starknet
