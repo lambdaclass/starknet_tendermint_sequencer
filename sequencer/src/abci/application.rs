@@ -51,7 +51,7 @@ impl Application for StarknetApp {
             last_block_height: HeightFile::read_or_create(),
 
             // using a fixed hash, see the commit() hook
-            last_block_app_hash: vec![],
+            last_block_app_hash: vec![].into(),
         }
     }
 
@@ -148,8 +148,8 @@ impl Application for StarknetApp {
                 let index_event = abci::Event {
                     r#type: "app".to_string(),
                     attributes: vec![abci::EventAttribute {
-                        key: "tx_id".to_string().into_bytes(),
-                        value: tx.transaction_hash.to_string().into_bytes(),
+                        key: "tx_id".into(),
+                        value: tx.transaction_hash.clone().into(),
                         index: true,
                     }],
                 };
@@ -163,8 +163,8 @@ impl Application for StarknetApp {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
                             attributes: vec![abci::EventAttribute {
-                                key: "function".to_string().into_bytes(),
-                                value: function.into_bytes(),
+                                key: "function".into(),
+                                value: function.into(),
                                 index: true,
                             }],
                         };
@@ -177,7 +177,7 @@ impl Application for StarknetApp {
 
                 abci::ResponseDeliverTx {
                     events,
-                    data: tx.transaction_hash.into_bytes(),
+                    data: tx.transaction_hash.into(),
                     ..Default::default()
                 }
             }
@@ -237,12 +237,12 @@ impl Application for StarknetApp {
 
         match app_hash {
             Ok(hash) => abci::ResponseCommit {
-                data: hash,
+                data: hash.into(),
                 retain_height: 0,
             },
             // error should be handled here
             _ => abci::ResponseCommit {
-                data: vec![],
+                data: vec![].into(),
                 retain_height: 0,
             },
         }
@@ -278,8 +278,8 @@ impl HeightFile {
             // if contents are not readable, crash intentionally
             bincode::deserialize(&bytes).expect("Contents of height file are not readable")
         } else {
-            std::fs::write(Self::PATH, bincode::serialize(&1i64).unwrap()).unwrap();
-            1i64
+            std::fs::write(Self::PATH, bincode::serialize(&0i64).unwrap()).unwrap();
+            0i64
         }
     }
 

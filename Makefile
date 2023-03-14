@@ -1,4 +1,4 @@
-.PHONY: tendermint reset abci cli tendermint_config tendermint_install rollkit_celestia bitcoin celestia
+.PHONY: reset abci cli consensus_config consensus_install rollkit_celestia bitcoin celestia
 
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 
@@ -8,8 +8,20 @@ else
 ARCH=amd64
 endif
 
-TMINT_VERSION=0.34.22
-TENDERMINT_HOME=~/.tendermint/
+# By default consensus protocol is tendermint. Can be overriden with cometbft
+CONSENSUS=tendermint
+
+ifeq ($(CONSENSUS), tendermint)
+CONSENSUS_VERSION=0.34.22
+CONSENSUS_HOME=~/.tendermint/
+else
+CONSENSUS=cometbft
+CONSENSUS_VERSION=0.34.27
+CONSENSUS_HOME=~/.cometbft/
+endif
+
+test_make:
+	echo "CONSENSUS = $(CONSENSUS) version=$(CONSENSUS_VERSION) home=$(CONSENSUS_HOME)"
 
 # Build the client program and put it in bin/aleo
 cli:
@@ -18,32 +30,36 @@ cli:
 
 # Installs tendermint for current OS and puts it in bin/
 bin/tendermint:
-	make tendermint_install
-	mv tendermint-install/tendermint bin/ && rm -rf tendermint-install
+	make consensus_install CONSENSUS=tendermint
 
-# Internal phony target to install tendermint for an arbitrary OS
-tendermint_install:
-	mkdir -p tendermint-install bin && cd tendermint-install &&\
-	wget https://github.com/tendermint/tendermint/releases/download/v$(TMINT_VERSION)/tendermint_$(TMINT_VERSION)_$(OS)_$(ARCH).tar.gz &&\
-	tar -xzvf tendermint_$(TMINT_VERSION)_$(OS)_$(ARCH).tar.gz
+# Installs cometbft for current OS and puts it in bin/
+bin/cometbft:
+	make consensus_install CONSENSUS=cometbft
 
-# Run a tendermint node, installing it if necessary
-node: tendermint_config
-	bin/tendermint node
+# Internal phony target to install tendermint/cometbft for an arbitrary OS
+consensus_install:
+	mkdir -p $(CONSENSUS)-install bin && cd $(CONSENSUS)-install &&\
+	wget https://github.com/$(CONSENSUS)/$(CONSENSUS)/releases/download/v$(CONSENSUS_VERSION)/$(CONSENSUS)_$(CONSENSUS_VERSION)_$(OS)_$(ARCH).tar.gz &&\
+	tar -xzvf $(CONSENSUS)_$(CONSENSUS_VERSION)_$(OS)_$(ARCH).tar.gz
+	mv $(CONSENSUS)-install/$(CONSENSUS) bin/ && rm -rf $(CONSENSUS)-install
 
-# Override a tendermint node's default configuration. NOTE: we should do something more declarative if we need to update more settings.
-tendermint_config:
-	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's/prometheus = false/prometheus = true/g' $(TENDERMINT_HOME)/config/config.toml
+# Run a consensus node, installing it if necessary
+node: bin/$(CONSENSUS) consensus_config
+	bin/$(CONSENSUS) node
+
+# Override a tendermint/cometbft node's default configuration. NOTE: we should do something more declarative if we need to update more settings.
+consensus_config:
+	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's/prometheus = false/prometheus = true/g' $(CONSENSUS_HOME)/config/config.toml
 
 # remove the blockchain data
-reset: bin/tendermint
-	bin/tendermint unsafe_reset_all
+reset: bin/$(CONSENSUS)
+	bin/$(CONSENSUS) unsafe_reset_all
 	rm -rf abci.height
 
-# run the Cairo tendermint application
+# run the Cairo abci application
 abci:
 	cargo run --release  --bin abci
 
@@ -51,46 +67,45 @@ abci:
 test:
 	RUST_BACKTRACE=full cargo test --release -- --nocapture --test-threads=4
 
-
-# Initialize the tendermint configuration for a localnet of the given amount of validators
+# Initialize the consensus configuration for a localnet of the given amount of validators
 localnet: VALIDATORS:=4
 localnet: ADDRESS:=127.0.0.1
 localnet: HOMEDIR:=localnet
-localnet: bin/tendermint cli
+localnet: bin/consensus cli
 	rm -rf $(HOMEDIR)/
-	bin/tendermint testnet --v $(VALIDATORS) --o ./$(HOMEDIR) --starting-ip-address $(ADDRESS)
+	bin/$(CONSENSUS) testnet --v $(VALIDATORS) --o ./$(HOMEDIR) --starting-ip-address $(ADDRESS)
 	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
-        make localnet_config TENDERMINT_HOME=$(HOMEDIR)/node$$n NODE=$$n VALIDATORS=$(VALIDATORS); \
+        make localnet_config CONSENSUS_HOME=$(HOMEDIR)/node$$n NODE=$$n VALIDATORS=$(VALIDATORS); \
 		mkdir $(HOMEDIR)/node$$n/abci ; \
 	done
 .PHONY: localnet
 # cargo run --bin genesis --release -- $(HOMEDIR)/*
 
-# run both the abci application and the tendermint node
+# run both the abci application and the consensus node
 # assumes config for each node has been done previously
 localnet_start: NODE:=0
 localnet_start: HOMEDIR:=localnet
 localnet_start:
-	bin/tendermint node --home ./$(HOMEDIR)/node$(NODE) &
+	bin/$(CONSENSUS) node --home ./$(HOMEDIR)/node$(NODE) &
 	cd ./$(HOMEDIR)/node$(NODE)/abci; cargo run --release --bin abci -- --port 26$(NODE)58
 .PHONY: localnet_start
 
 
 localnet_config:
-	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's/prometheus = false/prometheus = true/g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's/prometheus = false/prometheus = true/g' $(CONSENSUS_HOME)/config/config.toml
 	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
-	    eval "sed -i.bak 's/127.0.0.$$(($${n}+1)):26656/127.0.0.1:26$${n}56/g' $(TENDERMINT_HOME)/config/config.toml" ;\
+	    eval "sed -i.bak 's/127.0.0.$$(($${n}+1)):26656/127.0.0.1:26$${n}56/g' $(CONSENSUS_HOME)/config/config.toml" ;\
 	done
-	sed -i.bak 's#laddr = "tcp://0.0.0.0:26656"#laddr = "tcp://0.0.0.0:26$(NODE)56"#g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26$(NODE)57"#g' $(TENDERMINT_HOME)/config/config.toml
-	sed -i.bak 's#proxy_app = "tcp://127.0.0.1:26658"#proxy_app = "tcp://127.0.0.1:26$(NODE)58"#g' $(TENDERMINT_HOME)/config/config.toml
+	sed -i.bak 's#laddr = "tcp://0.0.0.0:26656"#laddr = "tcp://0.0.0.0:26$(NODE)56"#g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26$(NODE)57"#g' $(CONSENSUS_HOME)/config/config.toml
+	sed -i.bak 's#proxy_app = "tcp://127.0.0.1:26658"#proxy_app = "tcp://127.0.0.1:26$(NODE)58"#g' $(CONSENSUS_HOME)/config/config.toml
 .PHONY: localnet_config
 
 
 localnet_reset:
-	bin/tendermint unsafe_reset_all
+	bin/$(CONSENSUS) unsafe_reset_all
 		rm -rf localnet/node*/abci/abci.height;
 .PHONY: localnet_reset
 
