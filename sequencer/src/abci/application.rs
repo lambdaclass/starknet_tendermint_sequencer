@@ -1,6 +1,7 @@
 use std::{
     env,
     process::Command,
+    sync::mpsc,
     sync::{Arc, Mutex},
     time::Instant,
 };
@@ -22,6 +23,15 @@ use tracing::{debug, info};
 pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
     starknet_state: StarknetState,
+    sender: mpsc::Sender<ProverThreadMessages>,
+}
+
+enum ProverThreadMessages {
+    Transaction {
+        program: String,
+        program_name: String,
+    },
+    EndBlock,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
@@ -190,24 +200,19 @@ impl Application for StarknetApp {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
                             attributes: vec![abci::EventAttribute {
-                                key: "function".to_string().into_bytes(),
-                                value: function.into_bytes(),
+                                key: "function".into(),
+                                value: function.into(),
                                 index: true,
                             }],
                         };
                         events.push(function_event);
 
-                        let mut filepath = env::temp_dir();
-                        filepath.push(program_name);
-                        std::fs::write(filepath.clone(), program).expect("Failed to write to file");
-                        let output = Command::new("cairo-sharp")
-                            .args(["submit", "--source", filepath.to_str().unwrap()])
-                            .output()
-                            .expect("Error running cairo-sharp");
-                        info!(
-                            "cairo-sharp: {}",
-                            std::str::from_utf8(&output.stdout).unwrap()
-                        );
+                        self.sender
+                            .send(ProverThreadMessages::Transaction {
+                                program,
+                                program_name,
+                            })
+                            .unwrap();
                     }
                     TransactionType::Declare => todo!(),
                     TransactionType::Deploy => todo!(),
@@ -274,6 +279,8 @@ impl Application for StarknetApp {
 
         info!("Committing height {}", height,);
 
+        self.sender.send(ProverThreadMessages::EndBlock).unwrap();
+
         match app_hash {
             Ok(hash) => abci::ResponseCommit {
                 data: hash.into(),
@@ -291,17 +298,59 @@ impl Application for StarknetApp {
 impl StarknetApp {
     /// Constructor.
     pub fn new() -> Self {
+        let (sender, receiver) = mpsc::channel();
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
             starknet_state: StarknetState::new(None),
+            sender,
         };
         let height_file = HeightFile::read_or_create();
+
+        std::thread::spawn(move || Self::proof_sender_loop(receiver));
 
         info!(
             "Starting with Starknet State: {:?}. Height file has value: {}",
             new_state.starknet_state, height_file
         );
         new_state
+    }
+
+    fn proof_sender_loop(receiver: mpsc::Receiver<ProverThreadMessages>) {
+        let mut to_proof = vec![];
+
+        loop {
+            match receiver.recv() {
+                Ok(transaction @ ProverThreadMessages::Transaction { .. }) => {
+                    to_proof.push(transaction);
+                    info! {"Added transaction to send to prover"}
+                }
+                Ok(ProverThreadMessages::EndBlock) => {
+                    for messages in &to_proof {
+                        if let ProverThreadMessages::Transaction {
+                            program,
+                            program_name,
+                        } = messages
+                        {
+                            info! {"Starting to send to prover"}
+                            let mut filepath = env::temp_dir();
+                            filepath.push(program_name);
+                            std::fs::write(filepath.clone(), program)
+                                .expect("Failed to write to file");
+                            let output = Command::new("cairo-sharp")
+                                .args(["submit", "--source", filepath.to_str().unwrap()])
+                                .output()
+                                .expect("Error running cairo-sharp");
+                            info!(
+                                "Sent to prover, cairo-sharp response: {}",
+                                std::str::from_utf8(&output.stdout).unwrap()
+                            );
+                        }
+                    }
+                    to_proof.clear();
+                }
+                Err(_) => todo!(),
+            }
+        }
     }
 }
 
