@@ -38,6 +38,12 @@ pub enum TransactionType {
         function: String,
         program_name: String,
     },
+
+    FunctionExecutionProver {
+        program: String,
+        function: String,
+        program_name: String,
+    },
 }
 
 impl Transaction {
@@ -121,6 +127,16 @@ impl TransactionType {
                     )
                     .expect("Could not execute contract");
 
+                let mut hasher = Sha256::new();
+                hasher.update(function);
+                let hash = hasher.finalize().as_slice().to_owned();
+                Ok(hex::encode(hash))
+            }
+            TransactionType::FunctionExecutionProver {
+                program: _,
+                function,
+                program_name: _,
+            } => {
                 let mut hasher = Sha256::new();
                 hasher.update(function);
                 let hash = hasher.finalize().as_slice().to_owned();
