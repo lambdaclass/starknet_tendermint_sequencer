@@ -1,108 +1,30 @@
-# Celestia rollup for Tendermint-based Starknet sequencer 
+_Note: `main` branch contains the development version of the sequencer, for rollups integration please check branch [`rollups`](https://github.com/lambdaclass/starknet_tendermint_sequencer/tree/rollups)_
+# Tendermint-based Starknet sequencer 
 
-Sequencer for Starknet based in Tendermint and [starknet-in-rust](https://github.com/lambdaclass/starknet_in_rust).
+Sequencer for Starknet based in CometBFT (formerly Tendermint Core) and [starknet-in-rust](https://github.com/lambdaclass/starknet_in_rust).
 
-## Option 1: Running the rollup with a rollkit
+## Getting started 
 
-### Data availability (DA) layer
+First, install CometBFT:
 
-On a terminal, run Celestia consensus and DA bridge nodes.
-
-```sh
-make celestia
-```
-
-### Rollkit
-
-Install `Tendermint` and initialize it. This will initialize the required files that rollkit will use when running:
-
-```sh
+````
 make consensus_install
-bin/tendermint init
-```
+````
+This will install CometBFT and leave the binary in `bin/comebft`. Additionally, it will run `cometbft init` which creates the required configuration file and stores it in `~/.cometbft/`.
 
-Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see Option 3).
+You can now run the sequencer ABCI with CometBFT by just running those two binaries.
 
-Build and run Rollkit.
-
-```sh
-make rollkit_celestia
-```
-
-Note that the above code requires `md5sum` binary to be avaliable in order to generate a random namespace ID.
-
-### Sequencer (app layer)
-
-```sh
-make abci
-```
-
-At this point you have a DA layer, the application layer (sequencer ABCI) and rollkit running as a replacement for Tendermint. You can send transactions to rollkit and see them go to the ABCI and the DA layer.
-
-## Option 2: Running the rollup for Bitcoin
-
-Note: This requires `bitcoin-cli` and `bitcoind` to be installed. See [the original guide](https://rollkit.dev/docs/tutorials/bitcoin/) for more information.
-### DA Layer
-
-What we need to do to run this is generate a wallet and run the daemon. For this, run
-
-```sh
-make bitcoin
-```
-
-This runs `./bitcoin/start-daemon.sh` and `./bitcoin/run.sh`. Bitcoin acts as the DA layer.
-
-### Sequencer (app layer)
-
-On another terminal, run the ABCI.
-
-```sh
-make abci
-```
-
-### Rollkit
-
-If Tendermint is not installed, install and initialize it. This will initialize the required files that rollkit will use when running:
-
-```sh
-make consensus_install
-bin/tendermint init
-```
-
-Notice you can also eventually use Tendermint for running it as a consensus mechanism alongside the sequencer ABCI (see following section).
-
-Build and run Rollkit with Bitcoin DA layer.
-
-```sh
-# requires md5sum 
-make rollkit_bitcoin
-```
-
-### Sequencer (app layer)
-
-```sh
-make abci
-```
-
-At this point you have a DA layer, the application layer (sequencer ABCI) and rollkit running as a replacement for Tendermint.
-
-
-## Option 3: Running ABCI + Tendermint 
-
-You can also alternatively opt to run the sequencer ABCI with Tendermint by just running those two binaries.
-
-Run Tendermint Core node on a terminal:
+Run CometBFT node on a terminal:
 
 ```bash
 make node
 ```
-
 Run the ABCI sequencer application:
 
 ```bash
 make abci
 ```
-In order to reset Tendermint's state before rerunning it, make sure you run `make reset`
+In order to reset CometBFT's state before rerunning it, make sure you run `make reset`
 
 ### Sending a transaction
 
@@ -112,22 +34,15 @@ To send executions to the sequencer you need to have a compiled Cairo program (*
 cargo run --release programs/fibonacci.json main
 ```
 
-### Running [CometBFT](https://github.com/cometbft/cometbft) instead of Tendermint
+### Running Tendermint Core instead of CometBFT
 
-Current code can be run with both Tendermint and CometBFT (up to version 0.34.27). In order to use CometBFT the make command should include the `CONSENSUS` variable:
-
-```bash
-make node CONSENSUS=cometbft
-```
-
-This will run CometBFT instead of Tendermint (and also will install and configure it if not present).
-
-Also
+Current code can be run with both Tendermint and CometBFT (up to version 0.34.27). In order to use Tendermint Core the make command should include the `CONSENSUS` variable:
 
 ```bash
-make consensus_intall CONSENSUS=cometbft
+make node CONSENSUS=tendermint
 ```
-will run the CometBFT installation script
+
+This will run Tendermint Core instead of CometBFT (and also will install and configure it if not present).
 
 ### Benchmark
 
