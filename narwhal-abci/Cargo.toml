@@ -1,2 +1,0 @@
-[workspace]
-members = ["node", "narwhal-abci", "starknet-abci"]
