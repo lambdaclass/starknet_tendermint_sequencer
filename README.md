@@ -1,9 +1,9 @@
 _Note: `main` branch contains the development version of the sequencer, for rollups integration please check branch [`rollups`](https://github.com/lambdaclass/starknet_tendermint_sequencer/tree/rollups)_
-# Tendermint-based Starknet sequencer 
+# Tendermint-based Starknet sequencer
 
 Sequencer for Starknet based in CometBFT (formerly Tendermint Core) and [starknet-in-rust](https://github.com/lambdaclass/starknet_in_rust).
 
-## Getting started 
+## Getting started
 
 First, install CometBFT:
 
@@ -31,7 +31,7 @@ In order to reset CometBFT's state before rerunning it, make sure you run `make 
 To send executions to the sequencer you need to have a compiled Cairo program (*.json files in the repo). Then you can send them like so:
 
 ```bash
-cargo run --release programs/fibonacci.json main
+cargo run --release execute sequencer/programs/fibonacci.json main
 ```
 
 ### Running Tendermint Core instead of CometBFT
@@ -77,7 +77,7 @@ cd bench
 go build -o ./build/load_test ./cmd/load_test/main.go
 ```
 
-and once built move back to root directory and use 
+and once built move back to root directory and use
 
 ```bash
 ./bench/build/load_test -c 10 -T 10 -r 1000 -s 250 --broadcast-tx-method async --endpoints ws://localhost:26657/websocket --stats-output result.csv
@@ -93,7 +93,7 @@ to run it against a local tendermint+abci node.
 
 `-s` is the maximum size of a transaction to be sent.
 
-Run 
+Run
 ```bash
 ./bench/build/load_test -h
 ```

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
 use std::fs;
 use std::path::PathBuf;
@@ -11,9 +11,22 @@ use tracing_subscriber::EnvFilter;
 
 const LOCAL_SEQUENCER_URL: &str = "http://127.0.0.1:26657";
 
-#[derive(Debug, Parser)]
-#[clap()]
-pub struct Cli {
+#[derive(Parser)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Execute(ExecuteArgs),
+    Declare(DeclareArgs),
+    Deploy(DeployArgs),
+    Invoke(InvokeArgs),
+}
+
+#[derive(Args)]
+pub struct ExecuteArgs {
     /// Specify a subcommand.
     #[clap()]
     pub path: PathBuf,
@@ -35,11 +48,35 @@ pub struct Cli {
     pub url: String,
 }
 
+#[derive(Args)]
+pub struct DeclareArgs {
+    #[arg(long)]
+    contract: PathBuf,
+}
+
+#[derive(Args)]
+pub struct DeployArgs {}
+
+#[derive(Args)]
+pub struct InvokeArgs {}
+
 #[tokio::main()]
 async fn main() {
     let cli = Cli::parse();
 
-    if cli.verbose {
+    let (exit_code, output) = match cli.command {
+        Commands::Execute(execute_args) => do_execute(execute_args).await,
+        Commands::Declare(declare_args) => do_declare(declare_args).await,
+        Commands::Deploy(deploy_args) => do_deploy(deploy_args).await,
+        Commands::Invoke(invoke_args) => do_invoke(invoke_args).await,
+    };
+
+    println!("{output:#}");
+    std::process::exit(exit_code);
+}
+
+async fn do_execute(args: ExecuteArgs) -> (i32, String) {
+    if args.verbose {
         tracing_subscriber::fmt()
             // Use a more compact, abbreviated log format
             .compact()
@@ -49,14 +86,29 @@ async fn main() {
             .init();
     }
 
-    let (exit_code, output) =
-        match run(&cli.path, &cli.function_name, &cli.url, cli.no_broadcast).await {
-            Ok(output) => (0, output),
-            Err(err) => (1, format!("error: {err}")),
-        };
+    match run(
+        &args.path,
+        &args.function_name,
+        &args.url,
+        args.no_broadcast,
+    )
+    .await
+    {
+        Ok(output) => (0, output),
+        Err(err) => (1, format!("error: {err}")),
+    }
+}
 
-    println!("{output:#}");
-    std::process::exit(exit_code);
+async fn do_declare(_args: DeclareArgs) -> (i32, String) {
+    todo!()
+}
+
+async fn do_deploy(_args: DeployArgs) -> (i32, String) {
+    todo!()
+}
+
+async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
+    todo!()
 }
 
 async fn run(
