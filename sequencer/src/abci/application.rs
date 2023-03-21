@@ -6,7 +6,9 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::{testing::starknet_state::StarknetState, services::api::contract_class::ContractClass};
+use starknet_rs::{
+    services::api::contract_class::ContractClass, testing::starknet_state::StarknetState,
+};
 use tendermint_abci::Application;
 use tendermint_proto::abci;
 
@@ -171,10 +173,14 @@ impl Application for StarknetApp {
                         events.push(function_event);
                     }
                     TransactionType::Declare { program } => {
-                        let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from payload");
-                        self.starknet_state.lock().map(|mut state| state.declare(contract_class).unwrap()).unwrap();
+                        let contract_class = ContractClass::try_from(program)
+                            .expect("Could not load contract from payload");
+                        self.starknet_state
+                            .lock()
+                            .map(|mut state| state.declare(contract_class).unwrap())
+                            .unwrap();
                         // TODO: Should we send an event about this?
-                    },
+                    }
                     TransactionType::Deploy => todo!(),
                     TransactionType::Invoke => todo!(),
                 }
