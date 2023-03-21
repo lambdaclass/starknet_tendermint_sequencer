@@ -89,7 +89,7 @@ impl Application for StarknetApp {
                 );
             }
             TransactionType::Declare { program: _ } => info!("Received declare transaction"),
-            TransactionType::Deploy => todo!(),
+            TransactionType::DeployAccount => todo!(),
             TransactionType::Invoke => todo!(),
         }
 
@@ -175,7 +175,28 @@ impl Application for StarknetApp {
                         self.starknet_state.lock().map(|mut state| state.declare(contract_class).unwrap()).unwrap();
                         // TODO: Should we send an event about this?
                     },
-                    TransactionType::Deploy => todo!(),
+                    TransactionType::DeployAccount {class_hash } => {
+                        let constructor_calldata = match &args.inputs {
+                            Some(vec) => vec.iter().map(|&n| n.into()).collect(),
+                            None => Vec::new(),
+                        };
+                        let address = calculate_contract_address(
+                            &Address(args.salt.into()),
+                            &Felt::from_str_radix(&args.class_hash[2..], 16)
+                                .map_err(|_| ParserError::ParseFelt(args.class_hash.clone()))?,
+                            &constructor_calldata,
+                            Address(0.into()),
+                        )?;
+                    
+                        cached_state.deploy_contract(Address(address.clone()), string_to_hash(&args.class_hash))?;
+                        let tx_hash = calculate_deploy_transaction_hash(
+                            0,
+                            &Address(address.clone()),
+                            &constructor_calldata,
+                            Felt::zero(),
+                        )?;
+                        Ok((address, tx_hash))
+                    },
                     TransactionType::Invoke => todo!(),
                 }
 

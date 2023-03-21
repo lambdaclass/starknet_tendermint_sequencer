@@ -30,7 +30,9 @@ pub enum TransactionType {
     },
 
     /// Create an instance of a contract which will have storage assigned. (Accounts are a contract themselves)
-    Deploy,
+    DeployAccount {
+        class_hash: String,
+    },
 
     /// Execute a function from a deployed contract.
     Invoke,
@@ -133,7 +135,7 @@ impl TransactionType {
                 let contract_hash = starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash(&contract_class).unwrap();
                 Ok(hex::encode(contract_hash.to_bytes_be()))
             },
-            TransactionType::Deploy => todo!(),
+            TransactionType::DeployAccount => todo!(),
             TransactionType::Invoke => todo!(),
         }
     }

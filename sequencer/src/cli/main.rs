@@ -14,14 +14,14 @@ const LOCAL_SEQUENCER_URL: &str = "http://127.0.0.1:26657";
 #[derive(Parser)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Command,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+enum Command {
     Execute(ExecuteArgs),
     Declare(DeclareArgs),
-    Deploy(DeployArgs),
+    DeployAccount(DeployArgs),
     Invoke(InvokeArgs),
 }
 
@@ -55,7 +55,13 @@ pub struct DeclareArgs {
 }
 
 #[derive(Args)]
-pub struct DeployArgs {}
+pub struct DeployArgs {
+    #[arg(long)]
+    class_hash: String,
+    #[arg(long, default_value = "1111")]
+    salt: i32,
+}
+
 
 #[derive(Args)]
 pub struct InvokeArgs {}
@@ -65,10 +71,10 @@ async fn main() {
     let cli = Cli::parse();
 
     let (exit_code, output) = match cli.command {
-        Commands::Execute(execute_args) => do_execute(execute_args).await,
-        Commands::Declare(declare_args) => do_declare(declare_args).await,
-        Commands::Deploy(deploy_args) => do_deploy(deploy_args).await,
-        Commands::Invoke(invoke_args) => do_invoke(invoke_args).await,
+        Command::Execute(execute_args) => do_execute(execute_args).await,
+        Command::Declare(declare_args) => do_declare(declare_args).await,
+        Command::DeployAccount(deploy_args) => do_deploy(deploy_args).await,
+        Command::Invoke(invoke_args) => do_invoke(invoke_args).await,
     };
 
     println!("{output:#}");
@@ -110,8 +116,14 @@ async fn do_declare(args: DeclareArgs) -> (i32, String) {
     }
 }
 
-async fn do_deploy(_args: DeployArgs) -> (i32, String) {
-    todo!()
+async fn do_deploy(args: DeployArgs) -> (i32, String) {
+    let transaction_type = TransactionType::DeployAccount { args.class_hash };
+    let transaction = Transaction::with_type(transaction_type).unwrap();
+    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
+        Ok(_) => (0, format!("DECLARE: Sent transaction")),
+        Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
+    }
 }
 
 async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
