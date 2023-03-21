@@ -8,7 +8,10 @@ use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use starknet_rs::testing::starknet_state::StarknetState;
 use tendermint_abci::Application;
-use tendermint_proto::abci::{self, RequestPrepareProposal, ResponsePrepareProposal, RequestProcessProposal, ResponseProcessProposal, response_process_proposal};
+use tendermint_proto::abci::{
+    self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
+    ResponsePrepareProposal, ResponseProcessProposal,
+};
 
 use tracing::{debug, info};
 
