@@ -130,6 +130,7 @@ impl TransactionType {
             }
             TransactionType::Declare { program } => {
                 let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from JSON");
+                // This function requires cairo_programs/contracts.json to exist as it uses that cairo program to compute the hash
                 let contract_hash = starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash(&contract_class).unwrap();
                 Ok(hex::encode(contract_hash.to_bytes_be()))
             },

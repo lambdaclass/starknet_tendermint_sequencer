@@ -105,7 +105,7 @@ async fn do_declare(args: DeclareArgs) -> (i32, String) {
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
     match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
-        Ok(_) => (0, format!("DECLARE: Sent transaction")),
+        Ok(_) => (0, format!("Sent DECLARE transaction (ID {}) succesfully. Hash: {}", transaction.id, transaction.transaction_hash)),
         Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
     }
 }

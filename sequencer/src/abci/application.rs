@@ -171,7 +171,7 @@ impl Application for StarknetApp {
                         events.push(function_event);
                     }
                     TransactionType::Declare { program } => {
-                        let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from JSON");
+                        let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from payload");
                         self.starknet_state.lock().map(|mut state| state.declare(contract_class).unwrap()).unwrap();
                         // TODO: Should we send an event about this?
                     },
