@@ -3,14 +3,19 @@ use std::{
     time::Instant,
 };
 
+use felt::{felt_str, Felt};
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::{testing::starknet_state::StarknetState, services::api::contract_class::ContractClass};
+use starknet_rs::{utils::{felt_to_hash, string_to_hash, Address}, parser_errors::ParserError};
+
+use starknet_rs::{testing::starknet_state::StarknetState, services::api::contract_class::ContractClass, utils::Address, core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash, hash_utils::calculate_contract_address};
 use tendermint_abci::Application;
 use tendermint_proto::abci;
-
+use num_traits::Zero;
+use num_traits::Num;
 use tracing::{debug, info};
+
 
 /// An Tendermint ABCI application that works with a Cairo backend.
 /// This struct implements the ABCI application hooks, forwarding commands through
@@ -156,41 +161,26 @@ impl Application for StarknetApp {
                 let mut events = vec![index_event];
 
                 match tx.transaction_type {
-                    TransactionType::FunctionExecution {
-                        function,
-                        program_name: _,
-                    } => {
-                        let function_event = abci::Event {
-                            r#type: "function".to_string(),
-                            attributes: vec![abci::EventAttribute {
-                                key: "function".to_string(),
-                                value: function,
-                                index: true,
-                            }],
-                        };
-                        events.push(function_event);
-                    }
                     TransactionType::Declare { program } => {
                         let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from JSON");
                         self.starknet_state.lock().map(|mut state| state.declare(contract_class).unwrap()).unwrap();
                         // TODO: Should we send an event about this?
                     },
-                    TransactionType::DeployAccount {class_hash } => {
-                        let constructor_calldata = match &args.inputs {
+                    TransactionType::DeployAccount {class_hash, salt, inputs } => {
+                        let constructor_calldata = match &inputs {
                             Some(vec) => vec.iter().map(|&n| n.into()).collect(),
                             None => Vec::new(),
                         };
                         let address = calculate_contract_address(
-                            &Address(args.salt.into()),
-                            &Felt::from_str_radix(&args.class_hash[2..], 16)
-                                .map_err(|_| ParserError::ParseFelt(args.class_hash.clone()))?,
+                            &Address(salt.into()),
+                            &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap() // TODO: Handle these errors better
                             &constructor_calldata,
                             Address(0.into()),
-                        )?;
+                        ).unwrap();
                     
-                        cached_state.deploy_contract(Address(address.clone()), string_to_hash(&args.class_hash))?;
+                        self.starknet_state.lock().map(|mut state| state.deploy(Address(address.clone()), string_to_hash(&class_hash)).unwrap());
                         let tx_hash = calculate_deploy_transaction_hash(
-                            0,
+                            0, // TODO: How are versions handled?
                             &Address(address.clone()),
                             &constructor_calldata,
                             Felt::zero(),

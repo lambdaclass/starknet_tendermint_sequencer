@@ -56,10 +56,13 @@ pub struct DeclareArgs {
 
 #[derive(Args)]
 pub struct DeployArgs {
-    #[arg(long)]
+    #[arg(long = "class_hash")]
     class_hash: String,
+    // TODO: randomize salt by default?
     #[arg(long, default_value = "1111")]
     salt: i32,
+    #[arg(long, num_args=1.., value_delimiter = ' ')]
+    inputs: Option<Vec<i32>>,
 }
 
 
@@ -70,6 +73,7 @@ pub struct InvokeArgs {}
 async fn main() {
     let cli = Cli::parse();
 
+    // TODO: Have these functions return a Result and handle errors here
     let (exit_code, output) = match cli.command {
         Command::Execute(execute_args) => do_execute(execute_args).await,
         Command::Declare(declare_args) => do_declare(declare_args).await,
@@ -117,11 +121,12 @@ async fn do_declare(args: DeclareArgs) -> (i32, String) {
 }
 
 async fn do_deploy(args: DeployArgs) -> (i32, String) {
-    let transaction_type = TransactionType::DeployAccount { args.class_hash };
+    let transaction_type = TransactionType::DeployAccount { class_hash: args.class_hash, salt: args.salt, inputs: args.inputs };
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    
     match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
-        Ok(_) => (0, format!("DECLARE: Sent transaction")),
+        Ok(_) => (0, format!("DECLARE: Sent transaction - ID: {}", transaction.id)),
         Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
     }
 }
