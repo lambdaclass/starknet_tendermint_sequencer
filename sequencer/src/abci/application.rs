@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use starknet_rs::testing::starknet_state::StarknetState;
 use tendermint_abci::Application;
-use tendermint_proto::abci;
+use tendermint_proto::abci::{self, RequestPrepareProposal, ResponsePrepareProposal, RequestProcessProposal, ResponseProcessProposal, response_process_proposal};
 
 use tracing::{debug, info};
 
@@ -245,6 +245,54 @@ impl Application for StarknetApp {
                 data: vec![].into(),
                 retain_height: 0,
             },
+        }
+    }
+
+    /// A stage where the application can modify the list of transactions
+    /// in the preliminary proposal.
+    ///
+    /// The default implementation implements the required behavior in a
+    /// very naive way, removing transactions off the end of the list
+    /// until the limit on the total size of the transaction is met as
+    /// specified in the `max_tx_bytes` field of the request, or there are
+    /// no more transactions. It's up to the application to implement
+    /// more elaborate removal strategies.
+    ///
+    /// This method is introduced in ABCI++.
+    fn prepare_proposal(&self, request: RequestPrepareProposal) -> ResponsePrepareProposal {
+        // Per the ABCI++ spec: if the size of RequestPrepareProposal.txs is
+        // greater than RequestPrepareProposal.max_tx_bytes, the Application
+        // MUST remove transactions to ensure that the
+        // RequestPrepareProposal.max_tx_bytes limit is respected by those
+        // transactions returned in ResponsePrepareProposal.txs.
+        let RequestPrepareProposal {
+            mut txs,
+            max_tx_bytes,
+            ..
+        } = request;
+        let max_tx_bytes: usize = max_tx_bytes.try_into().unwrap_or(0);
+        let mut total_tx_bytes: usize = txs
+            .iter()
+            .map(|tx| tx.len())
+            .fold(0, |acc, len| acc.saturating_add(len));
+        while total_tx_bytes > max_tx_bytes {
+            if let Some(tx) = txs.pop() {
+                total_tx_bytes = total_tx_bytes.saturating_sub(tx.len());
+            } else {
+                break;
+            }
+        }
+        ResponsePrepareProposal { txs }
+    }
+
+    /// A stage where the application can accept or reject the proposed block.
+    ///
+    /// The default implementation returns the status value of `ACCEPT`.
+    ///
+    /// This method is introduced in ABCI++.
+    fn process_proposal(&self, _request: RequestProcessProposal) -> ResponseProcessProposal {
+        ResponseProcessProposal {
+            status: response_process_proposal::ProposalStatus::Accept as i32,
         }
     }
 }
