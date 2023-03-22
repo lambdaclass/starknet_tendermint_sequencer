@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 use starknet_rs::{utils::{felt_to_hash, string_to_hash, Address}, parser_errors::ParserError};
 
 use starknet_rs::{testing::starknet_state::StarknetState, services::api::contract_class::ContractClass, utils::Address, core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash, hash_utils::calculate_contract_address};
+
 use tendermint_abci::Application;
 use tendermint_proto::abci;
 use num_traits::Zero;
@@ -162,8 +163,12 @@ impl Application for StarknetApp {
 
                 match tx.transaction_type {
                     TransactionType::Declare { program } => {
-                        let contract_class = ContractClass::try_from(program.to_string()).expect("Could not load contract from JSON");
-                        self.starknet_state.lock().map(|mut state| state.declare(contract_class).unwrap()).unwrap();
+                        let contract_class = ContractClass::try_from(program)
+                            .expect("Could not load contract from payload");
+                        self.starknet_state
+                            .lock()
+                            .map(|mut state| state.declare(contract_class).unwrap())
+                            .unwrap();
                         // TODO: Should we send an event about this?
                     },
                     TransactionType::DeployAccount {class_hash, salt, inputs } => {
