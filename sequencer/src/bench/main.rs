@@ -30,7 +30,10 @@ pub struct Cli {
 }
 
 #[tokio::main()]
+#[allow(unreachable_code)]
 async fn main() {
+    todo!("New execute method needs to be implemented on bench/main.rs");
+
     let cli = Cli::parse();
 
     tracing_subscriber::fmt()
@@ -44,12 +47,9 @@ async fn main() {
         .init();
 
     // prepare transactions
-    let _program = include_str!("../../programs/fibonacci.json").to_string();
+    let program = include_str!("../../programs/fibonacci.json").to_string();
 
-    let transaction_type = TransactionType::FunctionExecution {
-        function: "main".to_string(),
-        program_name: "fibonacci.json".to_string(),
-    };
+    let transaction_type = TransactionType::Declare { program };
 
     let transaction = Transaction::with_type(transaction_type).unwrap();
     info!(

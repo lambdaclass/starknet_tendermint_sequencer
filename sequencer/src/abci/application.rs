@@ -3,20 +3,26 @@ use std::{
     time::Instant,
 };
 
-use felt::{felt_str, Felt};
+use felt::Felt;
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::{utils::{felt_to_hash, string_to_hash, Address}, parser_errors::ParserError};
+use starknet_rs::{
+    business_logic::state::state_api::StateReader,
+    utils::{felt_to_hash, Address},
+};
 
-use starknet_rs::{testing::starknet_state::StarknetState, services::api::contract_class::ContractClass, utils::Address, core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash, hash_utils::calculate_contract_address};
+use starknet_rs::{
+    core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
+    hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
+    testing::starknet_state::StarknetState,
+};
 
+use num_traits::Num;
+use num_traits::Zero;
 use tendermint_abci::Application;
 use tendermint_proto::abci;
-use num_traits::Zero;
-use num_traits::Num;
 use tracing::{debug, info};
-
 
 /// An Tendermint ABCI application that works with a Cairo backend.
 /// This struct implements the ABCI application hooks, forwarding commands through
@@ -85,17 +91,8 @@ impl Application for StarknetApp {
         let tx: Transaction = bincode::deserialize(&request.tx).unwrap();
 
         match tx.transaction_type {
-            TransactionType::FunctionExecution {
-                function,
-                program_name,
-            } => {
-                info!(
-                    "Received execution transaction. Function: {}, program {}",
-                    function, program_name
-                );
-            }
             TransactionType::Declare { program: _ } => info!("Received declare transaction"),
-            TransactionType::DeployAccount => todo!(),
+            TransactionType::DeployAccount { .. } => info!("Received deploy transaction"),
             TransactionType::Invoke => todo!(),
         }
 
@@ -159,39 +156,57 @@ impl Application for StarknetApp {
                         index: true,
                     }],
                 };
-                let mut events = vec![index_event];
+                let events = vec![index_event];
 
                 match tx.transaction_type {
                     TransactionType::Declare { program } => {
                         let contract_class = ContractClass::try_from(program)
                             .expect("Could not load contract from payload");
+
                         self.starknet_state
                             .lock()
                             .map(|mut state| state.declare(contract_class).unwrap())
                             .unwrap();
                         // TODO: Should we send an event about this?
-                    },
-                    TransactionType::DeployAccount {class_hash, salt, inputs } => {
+                    }
+                    TransactionType::DeployAccount {
+                        class_hash,
+                        salt,
+                        inputs,
+                    } => {
                         let constructor_calldata = match &inputs {
                             Some(vec) => vec.iter().map(|&n| n.into()).collect(),
                             None => Vec::new(),
                         };
                         let address = calculate_contract_address(
                             &Address(salt.into()),
-                            &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap() // TODO: Handle these errors better
+                            &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
                             &constructor_calldata,
                             Address(0.into()),
-                        ).unwrap();
-                    
-                        self.starknet_state.lock().map(|mut state| state.deploy(Address(address.clone()), string_to_hash(&class_hash)).unwrap());
+                        )
+                        .unwrap();
+
+                        let _ = self.starknet_state.lock().map(|mut state| {
+                            let class = state
+                                .state
+                                .get_contract_class(&felt_to_hash(&address.clone()))
+                                .unwrap();
+                            state.deploy(class, constructor_calldata.clone(), Address(salt.into()))
+                        });
+
                         let tx_hash = calculate_deploy_transaction_hash(
                             0, // TODO: How are versions handled?
                             &Address(address.clone()),
                             &constructor_calldata,
                             Felt::zero(),
-                        )?;
-                        Ok((address, tx_hash))
-                    },
+                        )
+                        .unwrap();
+
+                        info!(
+                            "Deployed tx_id {}, Address: {}, tx_hash: {}",
+                            tx.id, address, tx_hash
+                        );
+                    }
                     TransactionType::Invoke => todo!(),
                 }
 

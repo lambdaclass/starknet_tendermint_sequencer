@@ -1,8 +1,12 @@
 use anyhow::{ensure, Result};
-use serde::{Deserialize, Serialize};
-use starknet_rs::{services::api::contract_class::{ContractClass}, hash_utils::calculate_contract_address, utils::Address};
-use uuid::Uuid;
+
 use num_traits::Num;
+use serde::{Deserialize, Serialize};
+use starknet_rs::{
+    hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
+    utils::Address,
+};
+use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
@@ -48,7 +52,7 @@ impl Transaction {
 }
 
 impl TransactionType {
-    // TODO: Rename this and/or structure the code differently 
+    // TODO: Rename this and/or structure the code differently
     pub fn compute_and_hash(&self) -> Result<String> {
         match self {
             TransactionType::Declare { program } => {
@@ -57,26 +61,27 @@ impl TransactionType {
                 // This function requires cairo_programs/contracts.json to exist as it uses that cairo program to compute the hash
                 let contract_hash = starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash(&contract_class).unwrap();
                 Ok(hex::encode(contract_hash.to_bytes_be()))
-            },
-            TransactionType::DeployAccount {        
+            }
+            TransactionType::DeployAccount {
                 class_hash,
                 salt,
-                inputs
+                inputs,
             } => {
                 let constructor_calldata = match &inputs {
                     Some(vec) => vec.iter().map(|&n| n.into()).collect(),
                     None => Vec::new(),
                 };
-                
+
                 let address = calculate_contract_address(
                     &Address((*salt).into()),
                     &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
                     &constructor_calldata,
                     Address(0.into()),
-                ).unwrap();
+                )
+                .unwrap();
 
                 Ok(hex::encode(address.to_bytes_be()))
-            },
+            }
             TransactionType::Invoke => todo!(),
         }
     }

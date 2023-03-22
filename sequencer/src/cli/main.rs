@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
 use std::fs;
@@ -65,7 +65,6 @@ pub struct DeployArgs {
     inputs: Option<Vec<i32>>,
 }
 
-
 #[derive(Args)]
 pub struct InvokeArgs {}
 
@@ -115,25 +114,25 @@ async fn do_declare(args: DeclareArgs) -> (i32, String) {
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
     match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
-        Ok(_) => (
-            0,
-            format!(
-                "Sent DECLARE transaction (ID {}) succesfully. Hash: {}",
-                transaction.id, transaction.transaction_hash
-            ),
-        ),
-        Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
+        Ok(_) => (0, "DECLARE: Sent transaction".to_string()),
+        Err(e) => (1, format!("DECLARE: Error sending out transaction: {e}")),
     }
 }
 
 async fn do_deploy(args: DeployArgs) -> (i32, String) {
-    let transaction_type = TransactionType::DeployAccount { class_hash: args.class_hash, salt: args.salt, inputs: args.inputs };
+    let transaction_type = TransactionType::DeployAccount {
+        class_hash: args.class_hash,
+        salt: args.salt,
+        inputs: args.inputs,
+    };
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
-    
     match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
-        Ok(_) => (0, format!("DECLARE: Sent transaction - ID: {}", transaction.id)),
-        Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
+        Ok(_) => (
+            0,
+            format!("DECLARE: Sent transaction - ID: {}", transaction.id),
+        ),
+        Err(e) => (1, format!("DECLARE: Error sending out transaction: {e}")),
     }
 }
 
@@ -142,36 +141,37 @@ async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
 }
 
 async fn run(
-    path: &PathBuf,
-    function_name: &str,
-    sequencer_url: &str,
-    no_broadcast: bool,
+    _path: &PathBuf,
+    _function_name: &str,
+    _sequencer_url: &str,
+    _no_broadcast: bool,
 ) -> Result<String> {
-    let _program = fs::read_to_string(path)?;
-
-    let transaction_type = TransactionType::FunctionExecution {
-        function: function_name.to_owned(),
-        program_name: path
-            .file_name()
-            .expect("Error getting file name")
-            .to_string_lossy()
-            .to_string(),
-    };
-    let transaction = Transaction::with_type(transaction_type)?;
-
-    let transaction_serialized = bincode::serialize(&transaction).unwrap();
-
-    if no_broadcast {
-        Ok(str::from_utf8(&transaction_serialized).unwrap().to_string())
-    } else {
-        match broadcast(transaction_serialized, sequencer_url).await {
-            Ok(_) => Ok(format!(
-                "Sent transaction (ID {}) succesfully. Hash: {}",
-                transaction.id, transaction.transaction_hash
-            )),
-            Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
-        }
-    }
+    // let _program = fs::read_to_string(path)?;
+    //
+    // let transaction_type = TransactionType::FunctionExecution {
+    //     function: function_name.to_owned(),
+    //     program_name: path
+    //         .file_name()
+    //         .expect("Error getting file name")
+    //         .to_string_lossy()
+    //         .to_string(),
+    // };
+    // let transaction = Transaction::with_type(transaction_type)?;
+    //
+    // let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    //
+    // if no_broadcast {
+    //     Ok(str::from_utf8(&transaction_serialized).unwrap().to_string())
+    // } else {
+    //     match broadcast(transaction_serialized, sequencer_url).await {
+    //         Ok(_) => Ok(format!(
+    //             "Sent transaction (ID {}) succesfully. Hash: {}",
+    //             transaction.id, transaction.transaction_hash
+    //         )),
+    //         Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
+    //     }
+    // }
+    Ok("".to_string())
 }
 
 pub async fn broadcast(transaction: Vec<u8>, url: &str) -> Result<()> {
