@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str;
 use tendermint_rpc::{Client, HttpClient};
 use tracing::debug;
@@ -141,7 +141,7 @@ async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
 }
 
 async fn run(
-    _path: &PathBuf,
+    _path: &Path,
     _function_name: &str,
     _sequencer_url: &str,
     _no_broadcast: bool,
