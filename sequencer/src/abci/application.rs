@@ -6,7 +6,9 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::testing::starknet_state::StarknetState;
+use starknet_rs::{
+    services::api::contract_class::ContractClass, testing::starknet_state::StarknetState,
+};
 use tendermint_abci::Application;
 use tendermint_proto::abci::{
     self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
@@ -22,7 +24,7 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
-    starknet_state: StarknetState,
+    starknet_state: Arc<Mutex<StarknetState>>,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
@@ -91,7 +93,7 @@ impl Application for StarknetApp {
                     function, program_name
                 );
             }
-            TransactionType::Declare => todo!(),
+            TransactionType::Declare { program: _ } => info!("Received declare transaction"),
             TransactionType::Deploy => todo!(),
             TransactionType::Invoke => todo!(),
         }
@@ -173,7 +175,15 @@ impl Application for StarknetApp {
                         };
                         events.push(function_event);
                     }
-                    TransactionType::Declare => todo!(),
+                    TransactionType::Declare { program } => {
+                        let contract_class = ContractClass::try_from(program)
+                            .expect("Could not load contract from payload");
+                        self.starknet_state
+                            .lock()
+                            .map(|mut state| state.declare(contract_class).unwrap())
+                            .unwrap();
+                        // TODO: Should we send an event about this?
+                    }
                     TransactionType::Deploy => todo!(),
                     TransactionType::Invoke => todo!(),
                 }
@@ -305,7 +315,7 @@ impl StarknetApp {
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: StarknetState::new(None),
+            starknet_state: Arc::new(Mutex::new(StarknetState::new(None))),
         };
         let height_file = HeightFile::read_or_create();
 
