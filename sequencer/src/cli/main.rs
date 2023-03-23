@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str;
 use tendermint_rpc::{Client, HttpClient};
 use tracing::debug;
@@ -13,27 +13,9 @@ const LOCAL_SEQUENCER_URL: &str = "http://127.0.0.1:26657";
 
 #[derive(Parser)]
 struct Cli {
+    /// Subcommand to execute
     #[command(subcommand)]
     command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    Execute(ExecuteArgs),
-    Declare(DeclareArgs),
-    DeployAccount(DeployArgs),
-    Invoke(InvokeArgs),
-}
-
-#[derive(Args)]
-pub struct ExecuteArgs {
-    /// Specify a subcommand.
-    #[clap()]
-    pub path: PathBuf,
-
-    /// Function name from the compiled Cairo program.
-    #[clap()]
-    pub function_name: String,
 
     /// Output log lines to stdout based on the desired log level (RUST_LOG env var).
     #[clap(short, long, global = false, default_value_t = false)]
@@ -43,9 +25,16 @@ pub struct ExecuteArgs {
     #[clap(short, long, global = false, default_value_t = false)]
     pub no_broadcast: bool,
 
-    /// tendermint node url
+    /// Tendermint node url
     #[clap(short, long, env = "SEQUENCER_URL", default_value = LOCAL_SEQUENCER_URL)]
     pub url: String,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    Declare(DeclareArgs),
+    DeployAccount(DeployArgs),
+    Invoke(InvokeArgs),
 }
 
 #[derive(Args)]
@@ -72,20 +61,7 @@ pub struct InvokeArgs {}
 async fn main() {
     let cli = Cli::parse();
 
-    // TODO: Have these functions return a Result and handle errors here
-    let (exit_code, output) = match cli.command {
-        Command::Execute(execute_args) => do_execute(execute_args).await,
-        Command::Declare(declare_args) => do_declare(declare_args).await,
-        Command::DeployAccount(deploy_args) => do_deploy(deploy_args).await,
-        Command::Invoke(invoke_args) => do_invoke(invoke_args).await,
-    };
-
-    println!("{output:#}");
-    std::process::exit(exit_code);
-}
-
-async fn do_execute(args: ExecuteArgs) -> (i32, String) {
-    if args.verbose {
+    if cli.verbose {
         tracing_subscriber::fmt()
             // Use a more compact, abbreviated log format
             .compact()
@@ -95,83 +71,50 @@ async fn do_execute(args: ExecuteArgs) -> (i32, String) {
             .init();
     }
 
-    match run(
-        &args.path,
-        &args.function_name,
-        &args.url,
-        args.no_broadcast,
-    )
-    .await
-    {
-        Ok(output) => (0, output),
-        Err(err) => (1, format!("error: {err}")),
-    }
+    // TODO: Have these functions return a Result and handle errors here
+    let (exit_code, output) = match cli.command {
+        Command::Declare(declare_args) => do_declare(declare_args, &cli.url).await,
+        Command::DeployAccount(deploy_args) => do_deploy(deploy_args, &cli.url).await,
+        Command::Invoke(invoke_args) => do_invoke(invoke_args, &cli.url).await,
+    };
+
+    println!("{output:#}");
+    std::process::exit(exit_code);
 }
 
-async fn do_declare(args: DeclareArgs) -> (i32, String) {
+async fn do_declare(args: DeclareArgs, url: &str) -> (i32, String) {
     let program = fs::read_to_string(args.contract).unwrap();
     let transaction_type = TransactionType::Declare { program };
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
-    match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
+
+    match broadcast(transaction_serialized, url).await {
         Ok(_) => (0, "DECLARE: Sent transaction".to_string()),
         Err(e) => (1, format!("DECLARE: Error sending out transaction: {e}")),
     }
 }
 
-async fn do_deploy(args: DeployArgs) -> (i32, String) {
+async fn do_deploy(args: DeployArgs, url: &str) -> (i32, String) {
     let transaction_type = TransactionType::DeployAccount {
         class_hash: args.class_hash,
         salt: args.salt,
         inputs: args.inputs,
     };
+
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
-    match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
+
+    match broadcast(transaction_serialized, url).await {
         Ok(_) => (
             0,
-            format!("DECLARE: Sent transaction - ID: {}", transaction.id),
+            format!("DEPLOY: Sent transaction - ID: {}", transaction.id),
         ),
-        Err(e) => (1, format!("DECLARE: Error sending out transaction: {e}")),
+        Err(e) => (1, format!("DEPLOY: Error sending out transaction: {e}")),
     }
 }
 
-async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
+async fn do_invoke(_args: InvokeArgs, _url: &str) -> (i32, String) {
     todo!()
-}
-
-async fn run(
-    _path: &Path,
-    _function_name: &str,
-    _sequencer_url: &str,
-    _no_broadcast: bool,
-) -> Result<String> {
-    // let _program = fs::read_to_string(path)?;
-    //
-    // let transaction_type = TransactionType::FunctionExecution {
-    //     function: function_name.to_owned(),
-    //     program_name: path
-    //         .file_name()
-    //         .expect("Error getting file name")
-    //         .to_string_lossy()
-    //         .to_string(),
-    // };
-    // let transaction = Transaction::with_type(transaction_type)?;
-    //
-    // let transaction_serialized = bincode::serialize(&transaction).unwrap();
-    //
-    // if no_broadcast {
-    //     Ok(str::from_utf8(&transaction_serialized).unwrap().to_string())
-    // } else {
-    //     match broadcast(transaction_serialized, sequencer_url).await {
-    //         Ok(_) => Ok(format!(
-    //             "Sent transaction (ID {}) succesfully. Hash: {}",
-    //             transaction.id, transaction.transaction_hash
-    //         )),
-    //         Err(e) => Err(anyhow!("Error sending out transaction: {}", e)),
-    //     }
-    // }
-    Ok("".to_string())
 }
 
 pub async fn broadcast(transaction: Vec<u8>, url: &str) -> Result<()> {

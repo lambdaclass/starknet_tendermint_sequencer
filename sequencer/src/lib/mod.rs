@@ -41,7 +41,7 @@ impl Transaction {
     }
 
     /// Verify that the transaction id is consistent with its contents, by checking its sha256 hash.
-    pub fn verify(&self) -> Result<()> {
+    pub fn assert_integrity(&self) -> Result<()> {
         ensure!(
             self.transaction_hash == self.transaction_type.compute_and_hash()?,
             "Corrupted transaction: Inconsistent transaction id"
