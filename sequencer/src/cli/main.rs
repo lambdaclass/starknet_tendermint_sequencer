@@ -57,8 +57,28 @@ pub struct DeclareArgs {
 #[derive(Args)]
 pub struct DeployArgs {}
 
-#[derive(Args)]
-pub struct InvokeArgs {}
+#[derive(Args, Debug)]
+pub struct InvokeArgs {
+    /// Contract Address
+    #[clap(short, long)]
+    address: String,
+
+    /// ABI
+    #[clap(long)]
+    abi: PathBuf,
+
+    /// Function name
+    #[clap(short, long)]
+    function: String,
+
+    /// Function input values
+    #[clap(long, num_args=1.., value_delimiter = ' ')]
+    inputs: Option<Vec<i32>>,
+
+    /// tendermint node url
+    #[clap(short, long, env = "SEQUENCER_URL", default_value = LOCAL_SEQUENCER_URL)]
+    pub url: String,
+}
 
 #[tokio::main()]
 async fn main() {
@@ -107,8 +127,8 @@ async fn do_deploy(_args: DeployArgs) -> (i32, String) {
     todo!()
 }
 
-async fn do_invoke(_args: InvokeArgs) -> (i32, String) {
-    todo!()
+async fn do_invoke(args: InvokeArgs) -> (i32, String) {
+    (0, format!("args: {:?}", args))
 }
 
 async fn run(

@@ -90,7 +90,12 @@ impl Application for StarknetApp {
             }
             TransactionType::Declare => todo!(),
             TransactionType::Deploy => todo!(),
-            TransactionType::Invoke => todo!(),
+            TransactionType::Invoke {
+                address: _,
+                abi: _,
+                function: _,
+                inputs: _,
+            } => todo!(),
         }
 
         abci::ResponseCheckTx {
@@ -172,7 +177,12 @@ impl Application for StarknetApp {
                     }
                     TransactionType::Declare => todo!(),
                     TransactionType::Deploy => todo!(),
-                    TransactionType::Invoke => todo!(),
+                    TransactionType::Invoke {
+                        address: _,
+                        abi: _,
+                        function: _,
+                        inputs: _,
+                    } => todo!(),
                 }
 
                 abci::ResponseDeliverTx {

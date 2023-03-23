@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::{ensure, Result};
 use felt::Felt;
@@ -31,7 +31,12 @@ pub enum TransactionType {
     Deploy,
 
     /// Execute a function from a deployed contract.
-    Invoke,
+    Invoke {
+        address: String,
+        abi: PathBuf,
+        function: String,
+        inputs: Option<Vec<i32>>,
+    },
 
     // TODO: Remove this when other transactions are implemented
     FunctionExecution {
@@ -128,7 +133,12 @@ impl TransactionType {
             }
             TransactionType::Declare => todo!(),
             TransactionType::Deploy => todo!(),
-            TransactionType::Invoke => todo!(),
+            TransactionType::Invoke {
+                address: _,
+                abi: _,
+                function: _,
+                inputs: _,
+            } => Ok("Not yet implmented - working on it".to_owned()),
         }
     }
 }
