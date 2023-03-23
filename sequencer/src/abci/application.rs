@@ -6,9 +6,14 @@ use std::{
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::testing::starknet_state::StarknetState;
+use starknet_rs::{
+    services::api::contract_class::ContractClass, testing::starknet_state::StarknetState,
+};
 use tendermint_abci::Application;
-use tendermint_proto::abci;
+use tendermint_proto::abci::{
+    self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
+    ResponsePrepareProposal, ResponseProcessProposal,
+};
 
 use tracing::{debug, info};
 
@@ -19,7 +24,7 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
-    starknet_state: StarknetState,
+    starknet_state: Arc<Mutex<StarknetState>>,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
@@ -88,7 +93,7 @@ impl Application for StarknetApp {
                     function, program_name
                 );
             }
-            TransactionType::Declare => todo!(),
+            TransactionType::Declare { program: _ } => info!("Received declare transaction"),
             TransactionType::Deploy => todo!(),
             TransactionType::Invoke {
                 address: _,
@@ -175,7 +180,15 @@ impl Application for StarknetApp {
                         };
                         events.push(function_event);
                     }
-                    TransactionType::Declare => todo!(),
+                    TransactionType::Declare { program } => {
+                        let contract_class = ContractClass::try_from(program)
+                            .expect("Could not load contract from payload");
+                        self.starknet_state
+                            .lock()
+                            .map(|mut state| state.declare(contract_class).unwrap())
+                            .unwrap();
+                        // TODO: Should we send an event about this?
+                    }
                     TransactionType::Deploy => todo!(),
                     TransactionType::Invoke {
                         address: _,
@@ -257,6 +270,54 @@ impl Application for StarknetApp {
             },
         }
     }
+
+    /// A stage where the application can modify the list of transactions
+    /// in the preliminary proposal.
+    ///
+    /// The default implementation implements the required behavior in a
+    /// very naive way, removing transactions off the end of the list
+    /// until the limit on the total size of the transaction is met as
+    /// specified in the `max_tx_bytes` field of the request, or there are
+    /// no more transactions. It's up to the application to implement
+    /// more elaborate removal strategies.
+    ///
+    /// This method is introduced in ABCI++.
+    fn prepare_proposal(&self, request: RequestPrepareProposal) -> ResponsePrepareProposal {
+        // Per the ABCI++ spec: if the size of RequestPrepareProposal.txs is
+        // greater than RequestPrepareProposal.max_tx_bytes, the Application
+        // MUST remove transactions to ensure that the
+        // RequestPrepareProposal.max_tx_bytes limit is respected by those
+        // transactions returned in ResponsePrepareProposal.txs.
+        let RequestPrepareProposal {
+            mut txs,
+            max_tx_bytes,
+            ..
+        } = request;
+        let max_tx_bytes: usize = max_tx_bytes.try_into().unwrap_or(0);
+        let mut total_tx_bytes: usize = txs
+            .iter()
+            .map(|tx| tx.len())
+            .fold(0, |acc, len| acc.saturating_add(len));
+        while total_tx_bytes > max_tx_bytes {
+            if let Some(tx) = txs.pop() {
+                total_tx_bytes = total_tx_bytes.saturating_sub(tx.len());
+            } else {
+                break;
+            }
+        }
+        ResponsePrepareProposal { txs }
+    }
+
+    /// A stage where the application can accept or reject the proposed block.
+    ///
+    /// The default implementation returns the status value of `ACCEPT`.
+    ///
+    /// This method is introduced in ABCI++.
+    fn process_proposal(&self, _request: RequestProcessProposal) -> ResponseProcessProposal {
+        ResponseProcessProposal {
+            status: response_process_proposal::ProposalStatus::Accept as i32,
+        }
+    }
 }
 
 impl StarknetApp {
@@ -264,7 +325,7 @@ impl StarknetApp {
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: StarknetState::new(None),
+            starknet_state: Arc::new(Mutex::new(StarknetState::new(None))),
         };
         let height_file = HeightFile::read_or_create();
 

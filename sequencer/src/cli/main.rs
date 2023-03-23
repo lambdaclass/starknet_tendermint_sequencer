@@ -119,8 +119,21 @@ async fn do_execute(args: ExecuteArgs) -> (i32, String) {
     }
 }
 
-async fn do_declare(_args: DeclareArgs) -> (i32, String) {
-    todo!()
+async fn do_declare(args: DeclareArgs) -> (i32, String) {
+    let program = fs::read_to_string(args.contract).unwrap();
+    let transaction_type = TransactionType::Declare { program };
+    let transaction = Transaction::with_type(transaction_type).unwrap();
+    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    match broadcast(transaction_serialized, LOCAL_SEQUENCER_URL).await {
+        Ok(_) => (
+            0,
+            format!(
+                "Sent DECLARE transaction (ID {}) succesfully. Hash: {}",
+                transaction.id, transaction.transaction_hash
+            ),
+        ),
+        Err(e) => (1, format!("DECLARE: Error sending out transaction: {}", e)),
+    }
 }
 
 async fn do_deploy(_args: DeployArgs) -> (i32, String) {
