@@ -1,25 +1,24 @@
 use std::{
     sync::{Arc, Mutex},
-    time::Instant,
+    time::Instant, collections::HashMap,
 };
-
+use starknet_rs::utils::string_to_hash;
 use felt::Felt;
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use starknet_rs::{
-    business_logic::state::state_api::StateReader,
-    utils::{felt_to_hash, Address},
+    utils::{felt_to_hash, Address}, business_logic::state::state_api::State, core::contract_address::starknet_contract_address::compute_class_hash,
 };
 
 use starknet_rs::{
     core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
-    testing::starknet_state::StarknetState,
 };
 
 use num_traits::Num;
 use num_traits::Zero;
+use starknet_rs::{business_logic::{state::{cached_state::CachedState}, fact_state::in_memory_state_reader::InMemoryStateReader}};
 use tendermint_abci::Application;
 use tendermint_proto::abci::{
     self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
@@ -34,7 +33,7 @@ use tracing::{debug, info};
 #[derive(Debug, Clone)]
 pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
-    starknet_state: Arc<Mutex<StarknetState>>,
+    starknet_state: Arc<Mutex<CachedState<InMemoryStateReader>>>,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
@@ -163,14 +162,21 @@ impl Application for StarknetApp {
 
                 match tx.transaction_type {
                     TransactionType::Declare { program } => {
-                        let contract_class = ContractClass::try_from(program)
+                        let contract_class = ContractClass::try_from(program.as_str())
                             .expect("Could not load contract from payload");
+
+                        // TODO: Maybe we can get contract_hash as part of the TransactionType and validate it instead of recalculating on each step
+                        // This function requires cairo_programs/contracts.json to exist as it uses that cairo program to compute the hash
+                        let contract_hash_felt = compute_class_hash(&contract_class).unwrap();
+                        let contract_hash = felt_to_hash(&contract_hash_felt);
 
                         self.starknet_state
                             .lock()
-                            .map(|mut state| state.declare(contract_class).unwrap())
+                            .map(|mut state| state.set_contract_class(&contract_hash, &contract_class).unwrap())
                             .unwrap();
-                        // TODO: Should we send an event about this?
+
+                        info!("Declared tx_id {}, contract_hash: {}", tx.id, contract_hash_felt);
+                        // TODO: Should we publish an event about this?
                     }
                     TransactionType::DeployAccount {
                         class_hash,
@@ -190,11 +196,10 @@ impl Application for StarknetApp {
                         .unwrap();
 
                         let _ = self.starknet_state.lock().map(|mut state| {
-                            let class = state
-                                .state
-                                .get_contract_class(&felt_to_hash(&address.clone()))
-                                .unwrap();
-                            state.deploy(class, constructor_calldata.clone(), Address(salt.into()))
+                            // let class = state
+                            //     .get_contract_class(&felt_to_hash(&address.clone()))
+                            //     .unwrap();
+                            state.deploy_contract(Address(address.clone()), string_to_hash(&class_hash))
                         });
 
                         let tx_hash = calculate_deploy_transaction_hash(
@@ -340,7 +345,7 @@ impl StarknetApp {
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: Arc::new(Mutex::new(StarknetState::new(None))),
+            starknet_state: Arc::new(Mutex::new(CachedState::new(InMemoryStateReader::default(), Some(HashMap::new())))),
         };
         let height_file = HeightFile::read_or_create();
 
