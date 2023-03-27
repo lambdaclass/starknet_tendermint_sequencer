@@ -13,11 +13,11 @@ CONSENSUS=cometbft
 
 ifeq ($(CONSENSUS), tendermint)
 CONSENSUS_VERSION=0.34.22
-CONSENSUS_HOME=~/.tendermint/
+CONSENSUS_HOME=~/.tendermint
 else
 CONSENSUS=cometbft
 CONSENSUS_VERSION=0.37.0
-CONSENSUS_HOME=~/.cometbft/
+CONSENSUS_HOME=~/.cometbft
 endif
 
 test_make:

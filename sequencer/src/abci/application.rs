@@ -1,25 +1,25 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Instant,
-};
-
+use anyhow::{anyhow, Result};
 use felt::Felt;
 use lib::{Transaction, TransactionType};
+use num_traits::Num;
+use num_traits::Zero;
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use starknet_rs::{
-    business_logic::state::state_api::StateReader,
+    business_logic::{execution::objects::TransactionExecutionInfo, state::state_api::StateReader},
+    core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
+    hash_utils::calculate_contract_address,
+    parser_errors::ParserError,
+    serde_structs::contract_abi::read_abi,
+    services::api::contract_class::ContractClass,
+    testing::starknet_state::StarknetState,
     utils::{felt_to_hash, Address},
 };
-
-use starknet_rs::{
-    core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
-    hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
-    testing::starknet_state::StarknetState,
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
-
-use num_traits::Num;
-use num_traits::Zero;
 use tendermint_abci::Application;
 use tendermint_proto::abci::{
     self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
@@ -96,12 +96,7 @@ impl Application for StarknetApp {
         match tx.transaction_type {
             TransactionType::Declare { program: _ } => info!("Received declare transaction"),
             TransactionType::DeployAccount { .. } => info!("Received deploy transaction"),
-            TransactionType::Invoke {
-                address: _,
-                abi: _,
-                function: _,
-                inputs: _,
-            } => todo!(),
+            TransactionType::Invoke { .. } => info!("Received invoke transaction"),
         }
 
         abci::ResponseCheckTx {
@@ -216,11 +211,22 @@ impl Application for StarknetApp {
                         );
                     }
                     TransactionType::Invoke {
-                        address: _,
-                        abi: _,
-                        function: _,
-                        inputs: _,
-                    } => todo!(),
+                        address,
+                        abi,
+                        function,
+                        inputs,
+                    } => {
+                        let result = self.run_invoke_tx(&address, &abi, &function, &inputs);
+                        info!(
+                            "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}, Result: {:?}",
+                            tx.id,
+                            address,
+                            abi.display(),
+                            function,
+                            inputs,
+                            result,
+                        );
+                    }
                 }
 
                 abci::ResponseDeliverTx {
@@ -359,6 +365,59 @@ impl StarknetApp {
             new_state.starknet_state, height_file
         );
         new_state
+    }
+
+    fn run_invoke_tx(
+        &self,
+        address: &String,
+        abi: &PathBuf,
+        function: &String,
+        inputs: &Option<Vec<i32>>,
+    ) -> Result<TransactionExecutionInfo> {
+        let contract_address = Address(
+            Felt::from_str_radix(&address[2..], 16)
+                .map_err(|_| anyhow!("Could not parse address: {}", address))?,
+        );
+        let calldata = match &inputs {
+            Some(vec) => vec.iter().map(|&n| n.into()).collect(),
+            None => Vec::new(),
+        };
+        self.starknet_state
+            .lock()
+            .map(|mut state| {
+                let class_hash = *state.state.get_class_hash_at(&contract_address)?;
+                let contract_class = state.state.get_contract_class(&class_hash).map_err(|_| {
+                    anyhow!("No contract class found for class hash: {:?}", &class_hash)
+                })?;
+                let function_entrypoint_indexes = read_abi(&abi);
+
+                let entry_points_by_type = contract_class.entry_points_by_type().clone();
+                let (entry_point_index, entry_point_type) = function_entrypoint_indexes
+                    .get(function)
+                    .ok_or_else(|| ParserError::FunctionEntryPoint(function.clone()))?;
+
+                let entrypoint_selector = entry_points_by_type
+                    .get(entry_point_type)
+                    .ok_or(ParserError::EntryPointType(*entry_point_type))
+                    .unwrap()
+                    .get(*entry_point_index)
+                    .ok_or(ParserError::EntryPointIndex(*entry_point_index))
+                    .unwrap()
+                    .selector()
+                    .clone();
+
+                state
+                    .invoke_raw(
+                        contract_address,
+                        entrypoint_selector,
+                        calldata,
+                        0,
+                        None,
+                        None,
+                    )
+                    .map_err(|error| anyhow!(error))
+            })
+            .unwrap()
     }
 }
 
