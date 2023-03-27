@@ -1,14 +1,17 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Instant, collections::HashMap,
-};
-use starknet_rs::utils::string_to_hash;
 use felt::Felt;
 use lib::{Transaction, TransactionType};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
+use starknet_rs::utils::string_to_hash;
 use starknet_rs::{
-    utils::{felt_to_hash, Address}, business_logic::state::state_api::State, core::contract_address::starknet_contract_address::compute_class_hash,
+    business_logic::state::state_api::State,
+    core::contract_address::starknet_contract_address::compute_class_hash,
+    utils::{felt_to_hash, Address},
+};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use starknet_rs::{
@@ -18,7 +21,9 @@ use starknet_rs::{
 
 use num_traits::Num;
 use num_traits::Zero;
-use starknet_rs::{business_logic::{state::{cached_state::CachedState}, fact_state::in_memory_state_reader::InMemoryStateReader}};
+use starknet_rs::business_logic::{
+    fact_state::in_memory_state_reader::InMemoryStateReader, state::cached_state::CachedState,
+};
 use tendermint_abci::Application;
 use tendermint_proto::abci::{
     self, response_process_proposal, RequestPrepareProposal, RequestProcessProposal,
@@ -172,10 +177,17 @@ impl Application for StarknetApp {
 
                         self.starknet_state
                             .lock()
-                            .map(|mut state| state.set_contract_class(&contract_hash, &contract_class).unwrap())
+                            .map(|mut state| {
+                                state
+                                    .set_contract_class(&contract_hash, &contract_class)
+                                    .unwrap()
+                            })
                             .unwrap();
 
-                        info!("Declared tx_id {}, contract_hash: {}", tx.id, contract_hash_felt);
+                        info!(
+                            "Declared tx_id {}, contract_hash: {}",
+                            tx.id, contract_hash_felt
+                        );
                         // TODO: Should we publish an event about this?
                     }
                     TransactionType::DeployAccount {
@@ -199,7 +211,10 @@ impl Application for StarknetApp {
                             // let class = state
                             //     .get_contract_class(&felt_to_hash(&address.clone()))
                             //     .unwrap();
-                            state.deploy_contract(Address(address.clone()), string_to_hash(&class_hash))
+                            state.deploy_contract(
+                                Address(address.clone()),
+                                string_to_hash(&class_hash),
+                            )
                         });
 
                         let tx_hash = calculate_deploy_transaction_hash(
@@ -345,7 +360,10 @@ impl StarknetApp {
     pub fn new() -> Self {
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: Arc::new(Mutex::new(CachedState::new(InMemoryStateReader::default(), Some(HashMap::new())))),
+            starknet_state: Arc::new(Mutex::new(CachedState::new(
+                InMemoryStateReader::default(),
+                Some(HashMap::new()),
+            ))),
         };
         let height_file = HeightFile::read_or_create();
 
