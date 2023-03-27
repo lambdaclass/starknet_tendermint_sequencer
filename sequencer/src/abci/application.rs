@@ -389,7 +389,7 @@ impl StarknetApp {
                 let contract_class = state.state.get_contract_class(&class_hash).map_err(|_| {
                     anyhow!("No contract class found for class hash: {:?}", &class_hash)
                 })?;
-                let function_entrypoint_indexes = read_abi(&abi);
+                let function_entrypoint_indexes = read_abi(abi);
 
                 let entry_points_by_type = contract_class.entry_points_by_type().clone();
                 let (entry_point_index, entry_point_type) = function_entrypoint_indexes
