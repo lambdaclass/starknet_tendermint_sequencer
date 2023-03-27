@@ -133,7 +133,7 @@ async fn do_deploy(args: DeployArgs, url: &str) -> (i32, String) {
     }
 }
 
-async fn do_invoke(args: InvokeArgs) -> (i32, String) {
+async fn do_invoke(args: InvokeArgs, _url: &str) -> (i32, String) {
     (0, format!("args: {:?}", args))
 }
 
