@@ -159,7 +159,7 @@ impl Application for StarknetApp {
                     r#type: "app".to_string(),
                     attributes: vec![abci::EventAttribute {
                         key: "tx_id".to_string(),
-                        value: tx.transaction_hash.to_string(),
+                        value: tx.transaction_hash.to_string(), // TODO: Add more useful metadata
                         index: true,
                     }],
                 };
@@ -358,13 +358,14 @@ impl Application for StarknetApp {
 impl StarknetApp {
     /// Constructor.
     pub fn new() -> Self {
+        let mut state = CachedState::new(InMemoryStateReader::default(), Some(HashMap::new()));
+
+        state.set_contract_classes(Default::default()).unwrap();
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: Arc::new(Mutex::new(CachedState::new(
-                InMemoryStateReader::default(),
-                Some(HashMap::new()),
-            ))),
+            starknet_state: Arc::new(Mutex::new(state)),
         };
+
         let height_file = HeightFile::read_or_create();
 
         info!(
