@@ -148,8 +148,8 @@ impl Application for StarknetApp {
                 let index_event = abci::Event {
                     r#type: "app".to_string(),
                     attributes: vec![abci::EventAttribute {
-                        key: "tx_id".to_string(),
-                        value: tx.transaction_hash.to_string(),
+                        key: "tx_id".into(),
+                        value: tx.transaction_hash.clone().into(),
                         index: true,
                     }],
                 };
@@ -163,8 +163,8 @@ impl Application for StarknetApp {
                         let function_event = abci::Event {
                             r#type: "function".to_string(),
                             attributes: vec![abci::EventAttribute {
-                                key: "function".to_string(),
-                                value: function,
+                                key: "function".into(),
+                                value: function.into(),
                                 index: true,
                             }],
                         };

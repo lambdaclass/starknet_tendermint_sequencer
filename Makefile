@@ -45,19 +45,20 @@ consensus_install:
 
 # Run a consensus node, installing it if necessary
 node: bin/$(CONSENSUS) consensus_config
-	bin/$(CONSENSUS) node
+	bin/$(CONSENSUS) node --consensus.create_empty_blocks_interval="30s"
 
 # Override a tendermint/cometbft node's default configuration. NOTE: we should do something more declarative if we need to update more settings.
 consensus_config:
 	sed -i.bak 's/max_body_bytes = 1000000/max_body_bytes = 12000000/g' $(CONSENSUS_HOME)/config/config.toml
 	sed -i.bak 's/max_tx_bytes = 1048576/max_tx_bytes = 10485770/g' $(CONSENSUS_HOME)/config/config.toml
 	sed -i.bak 's#laddr = "tcp://127.0.0.1:26657"#laddr = "tcp://0.0.0.0:26657"#g' $(CONSENSUS_HOME)/config/config.toml
-	sed -i.bak 's/prometheus = false/prometheus = true/g' $(CONSENSUS_HOME)/config/config.toml
+#	sed -i.bak 's/prometheus = false/prometheus = true/g' $(CONSENSUS_HOME)/config/config.toml
 
-# remove the blockchain data
+# remove the blockchain data, and regtest data related to bitcoin 
 reset: bin/$(CONSENSUS)
 	bin/$(CONSENSUS) unsafe_reset_all
 	rm -rf abci.height
+	rm -rf $(HOME)/Library/"Application Support"/Bitcoin/regtest/
 
 # run the Cairo abci application
 abci:
