@@ -72,7 +72,7 @@ test:
 localnet: VALIDATORS:=4
 localnet: ADDRESS:=127.0.0.1
 localnet: HOMEDIR:=localnet
-localnet: bin/consensus cli
+localnet: bin/$(CONSENSUS) cli
 	rm -rf $(HOMEDIR)/
 	bin/$(CONSENSUS) testnet --v $(VALIDATORS) --o ./$(HOMEDIR) --starting-ip-address $(ADDRESS)
 	for n in $$(seq 0 $$(($(VALIDATORS)-1))) ; do \
@@ -87,7 +87,7 @@ localnet: bin/consensus cli
 localnet_start: NODE:=0
 localnet_start: HOMEDIR:=localnet
 localnet_start:
-	bin/$(CONSENSUS) node --home ./$(HOMEDIR)/node$(NODE) &
+	bin/$(CONSENSUS) node --home ./$(HOMEDIR)/node$(NODE) --consensus.create_empty_blocks_interval="30s" &
 	cd ./$(HOMEDIR)/node$(NODE)/abci; cargo run --release --bin abci -- --port 26$(NODE)58
 .PHONY: localnet_start
 
@@ -105,9 +105,12 @@ localnet_config:
 .PHONY: localnet_config
 
 
+localnet_reset: HOMEDIR:=localnet
 localnet_reset:
-	bin/$(CONSENSUS) unsafe_reset_all
-		rm -rf localnet/node*/abci/abci.height;
+	for node in $(HOMEDIR)/*/  ; do \
+		TMHOME=$$node bin/$(CONSENSUS) unsafe_reset_all ;\
+	done
+	rm -rf localnet/node*/abci/abci.height;
 .PHONY: localnet_reset
 
 clippy:
