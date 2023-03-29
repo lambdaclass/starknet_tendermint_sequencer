@@ -166,11 +166,18 @@ impl Application for StarknetApp {
                         let contract_class = ContractClass::try_from(program)
                             .expect("Could not load contract from payload");
 
-                        self.starknet_state
+                        let (class_hash, result) = self
+                            .starknet_state
                             .lock()
                             .map(|mut state| state.declare(contract_class).unwrap())
                             .unwrap();
                         // TODO: Should we send an event about this?
+                        info!("Declared tx_id: {}", tx.id);
+                        info!(
+                            "Class Hash 0x{} Result: {:?}",
+                            hex::encode(class_hash),
+                            result
+                        );
                     }
                     TransactionType::DeployAccount {
                         class_hash,
@@ -215,18 +222,30 @@ impl Application for StarknetApp {
                         abi,
                         function,
                         inputs,
-                    } => {
-                        let result = self.run_invoke_tx(&address, &abi, &function, &inputs);
-                        info!(
-                            "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}, Result: {:?}",
-                            tx.id,
-                            address,
-                            abi.display(),
-                            function,
-                            inputs,
-                            result,
-                        );
-                    }
+                    } => match self.run_invoke_tx(&address, &abi, &function, &inputs) {
+                        Ok(result) => {
+                            info!(
+                                    "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                                    tx.id,
+                                    address,
+                                    abi.display(),
+                                    function,
+                                    inputs,
+                                );
+                            info!("Result: {:?}", result)
+                        }
+                        Err(error) => {
+                            info!(
+                                    "Invoke failed for tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                                    tx.id,
+                                    address,
+                                    abi.display(),
+                                    function,
+                                    inputs,
+                                );
+                            info!("Error: {:?}", error)
+                        }
+                    },
                 }
 
                 abci::ResponseDeliverTx {
