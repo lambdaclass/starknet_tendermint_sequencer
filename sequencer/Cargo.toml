@@ -22,6 +22,10 @@ path = "src/lib/mod.rs"
 doctest = false
 name =  "lib"
 
+[profile.test]
+opt-level = 3
+debug-assertions = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -46,3 +50,10 @@ starknet-rs = { git = "https://github.com/lambdaclass/starknet_in_rust", rev = "
 # This was copied from starkent_in_rust/Cargo.toml as it seems it is missing an export for it
 felt = { git = "https://github.com/lambdaclass/cairo-rs", package = "cairo-felt", rev="77fe09ebbf72710935b455b1c5ff56b0bad7a4b8" }
 num-traits = "0.2.15"
+
+[dev-dependencies]
+assert_fs = "1.0.9"
+assert_cmd = "2.0.6"
+retry = "2.0.0"
+serial_test = "1.0.0"
+ctor = "0.1.23"

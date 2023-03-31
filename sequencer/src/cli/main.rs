@@ -1,14 +1,14 @@
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
+use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::str;
-use tendermint_rpc::{Client, HttpClient};
-use tracing::debug;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
+pub mod tendermint;
 const LOCAL_SEQUENCER_URL: &str = "http://127.0.0.1:26657";
 
 #[derive(Parser)]
@@ -35,6 +35,12 @@ enum Command {
     Declare(DeclareArgs),
     DeployAccount(DeployArgs),
     Invoke(InvokeArgs),
+    Get(GetArgs),
+}
+
+#[derive(Args)]
+pub struct GetArgs {
+    transaction_id: String,
 }
 
 #[derive(Args)]
@@ -91,30 +97,37 @@ async fn main() {
             .init();
     }
 
-    // TODO: Have these functions return a Result and handle errors here
-    let (exit_code, output) = match cli.command {
+    let result = match cli.command {
         Command::Declare(declare_args) => do_declare(declare_args, &cli.url).await,
         Command::DeployAccount(deploy_args) => do_deploy(deploy_args, &cli.url).await,
         Command::Invoke(invoke_args) => do_invoke(invoke_args, &cli.url).await,
+        Command::Get(get_args) => {
+            tendermint::get_transaction(&get_args.transaction_id, &cli.url).await
+        }
+    };
+
+    let (code, output) = match result {
+        Ok(output) => (0, json!(output)),
+        Err(err) => (1, json!({"error": err.to_string()})),
     };
 
     println!("{output:#}");
-    std::process::exit(exit_code);
+    std::process::exit(code);
 }
 
-async fn do_declare(args: DeclareArgs, url: &str) -> (i32, String) {
+async fn do_declare(args: DeclareArgs, url: &str) -> Result<Transaction> {
     let program = fs::read_to_string(args.contract).unwrap();
     let transaction_type = TransactionType::Declare { program };
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
 
-    match broadcast(transaction_serialized, url).await {
-        Ok(_) => (0, "DECLARE: Sent transaction".to_string()),
-        Err(e) => (1, format!("DECLARE: Error sending out transaction: {e}")),
+    match tendermint::broadcast(transaction_serialized, url).await {
+        Ok(_) => Ok(transaction),
+        Err(e) => bail!("DECLARE: Error ocurred when sending out transaction: {e}"),
     }
 }
 
-async fn do_deploy(args: DeployArgs, url: &str) -> (i32, String) {
+async fn do_deploy(args: DeployArgs, url: &str) -> Result<Transaction> {
     let transaction_type = TransactionType::DeployAccount {
         class_hash: args.class_hash,
         salt: args.salt,
@@ -124,12 +137,9 @@ async fn do_deploy(args: DeployArgs, url: &str) -> (i32, String) {
     let transaction = Transaction::with_type(transaction_type).unwrap();
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
 
-    match broadcast(transaction_serialized, url).await {
-        Ok(_) => (
-            0,
-            format!("DEPLOY: Sent transaction - ID: {}", transaction.id),
-        ),
-        Err(e) => (1, format!("DEPLOY: Error sending out transaction: {e}")),
+    match tendermint::broadcast(transaction_serialized, url).await {
+        Ok(_) => Ok(transaction),
+        Err(e) => bail!("DEPLOY: Error sending out transaction: {e}"),
     }
 }
 
@@ -150,19 +160,5 @@ async fn do_invoke(args: InvokeArgs, url: &str) -> (i32, String) {
             format!("INVOKE: Sent transaction - ID: {}", transaction.id),
         ),
         Err(e) => (1, format!("INVOKE: Error sending out transaction: {e}")),
-    }
-}
-
-pub async fn broadcast(transaction: Vec<u8>, url: &str) -> Result<()> {
-    let client = HttpClient::new(url).unwrap();
-
-    let response = client.broadcast_tx_sync(transaction).await?;
-
-    debug!("Response from CheckTx: {:?}", response);
-    match response.code {
-        tendermint::abci::Code::Ok => Ok(()),
-        tendermint::abci::Code::Err(code) => {
-            bail!("Error executing transaction {}: {}", code, response.log)
-        }
     }
 }
