@@ -121,16 +121,16 @@ impl Application for StarknetApp {
     /// credits when the block is committed.
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
         // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
-        
+
         unsafe {
             if TRANSACTIONS > 0 {
                 info!(
-                "{} ms passed between begin_block() calls. {} transactions, {} tps",
-                (*TIMER).elapsed().as_millis(),
-                TRANSACTIONS,
-                (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
-            );
-        }
+                    "{} ms passed between begin_block() calls. {} transactions, {} tps",
+                    (*TIMER).elapsed().as_millis(),
+                    TRANSACTIONS,
+                    (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
+                );
+            }
             TRANSACTIONS = 0;
 
             *TIMER = Instant::now();

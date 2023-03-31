@@ -1,3 +1,4 @@
+use crate::tendermint::broadcast;
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use lib::{Transaction, TransactionType};
@@ -143,7 +144,7 @@ async fn do_deploy(args: DeployArgs, url: &str) -> Result<Transaction> {
     }
 }
 
-async fn do_invoke(args: InvokeArgs, url: &str) -> (i32, String) {
+async fn do_invoke(args: InvokeArgs, url: &str) -> Result<Transaction> {
     let transaction_type = TransactionType::Invoke {
         address: args.address,
         abi: args.abi,
@@ -155,10 +156,7 @@ async fn do_invoke(args: InvokeArgs, url: &str) -> (i32, String) {
     let transaction_serialized = bincode::serialize(&transaction).unwrap();
 
     match broadcast(transaction_serialized, url).await {
-        Ok(_) => (
-            0,
-            format!("INVOKE: Sent transaction - ID: {}", transaction.id),
-        ),
-        Err(e) => (1, format!("INVOKE: Error sending out transaction: {e}")),
+        Ok(_) => Ok(transaction),
+        Err(e) => bail!("INVOKE: Error sending out transaction: {e}"),
     }
 }
