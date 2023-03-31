@@ -54,8 +54,28 @@ pub struct DeployArgs {
     inputs: Option<Vec<i32>>,
 }
 
-#[derive(Args)]
-pub struct InvokeArgs {}
+#[derive(Args, Debug)]
+pub struct InvokeArgs {
+    /// Contract Address
+    #[clap(short, long)]
+    address: String,
+
+    /// ABI
+    #[clap(long)]
+    abi: PathBuf,
+
+    /// Function name
+    #[clap(short, long)]
+    function: String,
+
+    /// Function input values
+    #[clap(long, num_args=1.., value_delimiter = ' ')]
+    inputs: Option<Vec<i32>>,
+
+    /// tendermint node url
+    #[clap(short, long, env = "SEQUENCER_URL", default_value = LOCAL_SEQUENCER_URL)]
+    pub url: String,
+}
 
 #[tokio::main()]
 async fn main() {
@@ -113,8 +133,24 @@ async fn do_deploy(args: DeployArgs, url: &str) -> (i32, String) {
     }
 }
 
-async fn do_invoke(_args: InvokeArgs, _url: &str) -> (i32, String) {
-    todo!()
+async fn do_invoke(args: InvokeArgs, url: &str) -> (i32, String) {
+    let transaction_type = TransactionType::Invoke {
+        address: args.address,
+        abi: args.abi,
+        function: args.function,
+        inputs: args.inputs,
+    };
+
+    let transaction = Transaction::with_type(transaction_type).unwrap();
+    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+
+    match broadcast(transaction_serialized, url).await {
+        Ok(_) => (
+            0,
+            format!("INVOKE: Sent transaction - ID: {}", transaction.id),
+        ),
+        Err(e) => (1, format!("INVOKE: Error sending out transaction: {e}")),
+    }
 }
 
 pub async fn broadcast(transaction: Vec<u8>, url: &str) -> Result<()> {
