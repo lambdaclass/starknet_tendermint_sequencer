@@ -45,7 +45,7 @@ consensus_install:
 
 # Run a consensus node, installing it if necessary
 node: bin/$(CONSENSUS) consensus_config
-	bin/$(CONSENSUS) node
+	bin/$(CONSENSUS) node --consensus.create_empty_blocks_interval="30s"
 
 # Override a tendermint/cometbft node's default configuration. NOTE: we should do something more declarative if we need to update more settings.
 consensus_config:
