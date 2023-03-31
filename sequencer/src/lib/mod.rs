@@ -1,11 +1,11 @@
 use anyhow::{ensure, Result};
-
 use num_traits::Num;
 use serde::{Deserialize, Serialize};
 use starknet_rs::{
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
     utils::Address,
 };
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -28,7 +28,12 @@ pub enum TransactionType {
     },
 
     /// Execute a function from a deployed contract.
-    Invoke,
+    Invoke {
+        address: String,
+        abi: PathBuf,
+        function: String,
+        inputs: Option<Vec<i32>>,
+    },
 }
 
 impl Transaction {
@@ -74,7 +79,7 @@ impl TransactionType {
 
                 let address = calculate_contract_address(
                     &Address((*salt).into()),
-                    &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
+                    &felt::Felt252::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
                     &constructor_calldata,
                     Address(0.into()),
                 )
@@ -82,7 +87,12 @@ impl TransactionType {
 
                 Ok(hex::encode(address.to_bytes_be()))
             }
-            TransactionType::Invoke => todo!(),
+            TransactionType::Invoke {
+                address: _,
+                abi: _,
+                function: _,
+                inputs: _,
+            } => Ok("Not yet implmented - working on it".to_owned()),
         }
     }
 }

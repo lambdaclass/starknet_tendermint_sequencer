@@ -1,28 +1,34 @@
-use felt::Felt;
+use anyhow::{anyhow, Result};
+use felt::Felt252;
 use lib::{Transaction, TransactionType};
+use num_traits::Num;
+use num_traits::Zero;
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
+use starknet_rs::business_logic::execution::objects::TransactionExecutionInfo;
+use starknet_rs::business_logic::state::state_api::State;
+use starknet_rs::business_logic::state::state_api::StateReader;
+use starknet_rs::business_logic::transaction::objects::internal_invoke_function::InternalInvokeFunction;
+use starknet_rs::business_logic::transaction::transactions::Transaction as StarknetTransaction;
+use starknet_rs::business_logic::{
+    fact_state::in_memory_state_reader::InMemoryStateReader, state::cached_state::CachedState,
+};
+use starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash;
+use starknet_rs::definitions::general_config::StarknetGeneralConfig;
+use starknet_rs::parser_errors::ParserError;
+use starknet_rs::serde_structs::contract_abi::read_abi;
+use starknet_rs::utils::felt_to_hash;
 use starknet_rs::utils::string_to_hash;
-use starknet_rs::{
-    business_logic::state::state_api::State,
-    core::contract_address::starknet_contract_address::compute_class_hash,
-    utils::{felt_to_hash, Address},
-};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Instant,
-};
-
+use starknet_rs::utils::Address;
 use starknet_rs::{
     core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
 };
-
-use num_traits::Num;
-use num_traits::Zero;
-use starknet_rs::business_logic::{
-    fact_state::in_memory_state_reader::InMemoryStateReader, state::cached_state::CachedState,
+use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 use tendermint_abci::Application;
 use tendermint_proto::abci::{
@@ -39,6 +45,7 @@ use tracing::{debug, info};
 pub struct StarknetApp {
     hasher: Arc<Mutex<Sha256>>,
     starknet_state: Arc<Mutex<CachedState<InMemoryStateReader>>>,
+    config: StarknetGeneralConfig,
 }
 
 // because we don't get a `&mut self` in the ABCI API, we opt to have a mod-level variable
@@ -97,10 +104,11 @@ impl Application for StarknetApp {
     fn check_tx(&self, request: abci::RequestCheckTx) -> abci::ResponseCheckTx {
         let tx: Transaction = bincode::deserialize(&request.tx).unwrap();
 
+        // TODO: Implement starknet validations for each one
         match tx.transaction_type {
             TransactionType::Declare { program: _ } => info!("Received declare transaction"),
             TransactionType::DeployAccount { .. } => info!("Received deploy transaction"),
-            TransactionType::Invoke => todo!(),
+            TransactionType::Invoke { .. } => info!("Received invoke transaction"),
         }
 
         abci::ResponseCheckTx {
@@ -113,13 +121,16 @@ impl Application for StarknetApp {
     /// credits when the block is committed.
     fn begin_block(&self, _request: abci::RequestBeginBlock) -> abci::ResponseBeginBlock {
         // because begin_block, [deliver_tx] and end_block/commit are on the same thread, this is safe to do (see declaration of statics)
+        
         unsafe {
-            info!(
+            if TRANSACTIONS > 0 {
+                info!(
                 "{} ms passed between begin_block() calls. {} transactions, {} tps",
                 (*TIMER).elapsed().as_millis(),
                 TRANSACTIONS,
                 (TRANSACTIONS * 1000) as f32 / ((*TIMER).elapsed().as_millis() as f32)
             );
+        }
             TRANSACTIONS = 0;
 
             *TIMER = Instant::now();
@@ -169,7 +180,6 @@ impl Application for StarknetApp {
                     TransactionType::Declare { program } => {
                         let contract_class = ContractClass::try_from(program.as_str())
                             .expect("Could not load contract from payload");
-
                         // TODO: Maybe we can get contract_hash as part of the TransactionType and validate it instead of recalculating on each step
                         // This function requires cairo_programs/contracts.json to exist as it uses that cairo program to compute the hash
                         let contract_hash_felt = compute_class_hash(&contract_class).unwrap();
@@ -184,11 +194,9 @@ impl Application for StarknetApp {
                             })
                             .unwrap();
 
-                        info!(
-                            "Declared tx_id {}, contract_hash: {}",
-                            tx.id, contract_hash_felt
-                        );
-                        // TODO: Should we publish an event about this?
+                        // TODO: Should we send an event about this?
+                        info!("Declared tx_id: {}", tx.id);
+                        info!("Class Hash 0x{}", hex::encode(contract_hash),);
                     }
                     TransactionType::DeployAccount {
                         class_hash,
@@ -201,7 +209,7 @@ impl Application for StarknetApp {
                         };
                         let address = calculate_contract_address(
                             &Address(salt.into()),
-                            &felt::Felt::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
+                            &Felt252::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
                             &constructor_calldata,
                             Address(0.into()),
                         )
@@ -221,7 +229,7 @@ impl Application for StarknetApp {
                             0, // TODO: How are versions handled?
                             &Address(address.clone()),
                             &constructor_calldata,
-                            Felt::zero(),
+                            Felt252::zero(),
                         )
                         .unwrap();
 
@@ -230,7 +238,35 @@ impl Application for StarknetApp {
                             tx.id, address, tx_hash
                         );
                     }
-                    TransactionType::Invoke => todo!(),
+                    TransactionType::Invoke {
+                        address,
+                        abi,
+                        function,
+                        inputs,
+                    } => match self.run_invoke_tx(&address, &abi, &function, &inputs) {
+                        Ok(result) => {
+                            info!(
+                                    "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                                    tx.id,
+                                    address,
+                                    abi.display(),
+                                    function,
+                                    inputs,
+                                );
+                            info!("Result: {:?}", result)
+                        }
+                        Err(error) => {
+                            info!(
+                                    "Invoke failed for tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                                    tx.id,
+                                    address,
+                                    abi.display(),
+                                    function,
+                                    inputs,
+                                );
+                            info!("Error: {:?}", error)
+                        }
+                    },
                 }
 
                 abci::ResponseDeliverTx {
@@ -363,7 +399,11 @@ impl StarknetApp {
         state.set_contract_classes(Default::default()).unwrap();
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
-            starknet_state: Arc::new(Mutex::new(state)),
+            starknet_state: Arc::new(Mutex::new(CachedState::new(
+                InMemoryStateReader::default(),
+                Some(HashMap::new()),
+            ))),
+            config: StarknetGeneralConfig::default(),
         };
 
         let height_file = HeightFile::read_or_create();
@@ -373,6 +413,66 @@ impl StarknetApp {
             new_state.starknet_state, height_file
         );
         new_state
+    }
+
+    fn run_invoke_tx(
+        &self,
+        address: &String,
+        abi: &PathBuf,
+        function: &String,
+        inputs: &Option<Vec<i32>>,
+    ) -> Result<TransactionExecutionInfo> {
+        let contract_address = Address(
+            Felt252::from_str_radix(&address[2..], 16)
+                .map_err(|_| anyhow!("Could not parse address: {}", address))?,
+        );
+        let calldata = match &inputs {
+            Some(vec) => vec.iter().map(|&n| n.into()).collect(),
+            None => Vec::new(),
+        };
+        let result = self.starknet_state.lock().map(|mut state| {
+            let class_hash = *state.get_class_hash_at(&contract_address).unwrap();
+            let contract_class = state
+                .get_contract_class(&class_hash)
+                .map_err(|_| anyhow!("No contract class found for class hash: {:?}", &class_hash))
+                .unwrap();
+
+            let function_entrypoint_indexes = read_abi(abi);
+
+            let entry_points_by_type = contract_class.entry_points_by_type().clone();
+            let (entry_point_index, entry_point_type) = function_entrypoint_indexes
+                .get(function)
+                .ok_or_else(|| ParserError::FunctionEntryPoint(function.clone()))
+                .unwrap();
+
+            let entry_point_selector = entry_points_by_type
+                .get(entry_point_type)
+                .ok_or(ParserError::EntryPointType(*entry_point_type))
+                .unwrap()
+                .get(*entry_point_index)
+                .ok_or(ParserError::EntryPointIndex(*entry_point_index))
+                .unwrap()
+                .selector()
+                .clone();
+
+            let tx = InternalInvokeFunction::new(
+                contract_address,
+                entry_point_selector,
+                0,
+                calldata,
+                vec![],
+                0.into(),
+                Some(0.into()),
+            )
+            .unwrap();
+
+            let tx = StarknetTransaction::InvokeFunction(tx);
+            let mut state = state.clone();
+
+            tx.execute(&mut state, &self.config).unwrap()
+        });
+
+        result.map_err(|_| anyhow!("Error running invoke_tx"))
     }
 }
 
