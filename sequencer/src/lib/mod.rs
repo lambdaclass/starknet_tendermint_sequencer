@@ -1,4 +1,5 @@
 use anyhow::{ensure, Result};
+use std::path::PathBuf;
 
 use num_traits::Num;
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,12 @@ pub enum TransactionType {
     },
 
     /// Execute a function from a deployed contract.
-    Invoke,
+    Invoke {
+        address: String,
+        abi: PathBuf,
+        function: String,
+        inputs: Option<Vec<i32>>,
+    },
 }
 
 impl Transaction {
@@ -82,7 +88,12 @@ impl TransactionType {
 
                 Ok(hex::encode(address.to_bytes_be()))
             }
-            TransactionType::Invoke => todo!(),
+            TransactionType::Invoke {
+                address: _,
+                abi: _,
+                function: _,
+                inputs: _,
+            } => Ok("Not yet implmented - working on it".to_owned()),
         }
     }
 }
