@@ -1,22 +1,29 @@
 use anyhow::{anyhow, Result};
 use felt::Felt252;
+use felt::felt_str;
 use lib::{Transaction, TransactionType};
 use num_traits::Num;
+use num_traits::One;
 use num_traits::Zero;
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use starknet_rs::business_logic::execution::objects::TransactionExecutionInfo;
 use starknet_rs::business_logic::state::state_api::State;
 use starknet_rs::business_logic::state::state_api::StateReader;
+use starknet_rs::business_logic::transaction::objects::internal_declare::InternalDeclare;
+use starknet_rs::business_logic::transaction::objects::internal_deploy::InternalDeploy;
+use starknet_rs::business_logic::transaction::objects::internal_deploy_account::InternalDeployAccount;
 use starknet_rs::business_logic::transaction::objects::internal_invoke_function::InternalInvokeFunction;
 use starknet_rs::business_logic::transaction::transactions::Transaction as StarknetTransaction;
 use starknet_rs::business_logic::{
     fact_state::in_memory_state_reader::InMemoryStateReader, state::cached_state::CachedState,
 };
 use starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash;
+use starknet_rs::definitions::general_config::StarknetChainId;
 use starknet_rs::definitions::general_config::StarknetGeneralConfig;
-use starknet_rs::parser_errors::ParserError;
-use starknet_rs::serde_structs::contract_abi::read_abi;
+
+use starknet_rs::utils::ClassHash;
+use starknet_rs::utils::calculate_sn_keccak;
 use starknet_rs::utils::felt_to_hash;
 use starknet_rs::utils::string_to_hash;
 use starknet_rs::utils::Address;
@@ -24,7 +31,7 @@ use starknet_rs::{
     core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
 };
-use std::path::PathBuf;
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -185,12 +192,26 @@ impl Application for StarknetApp {
                         let contract_hash_felt = compute_class_hash(&contract_class).unwrap();
                         let contract_hash = felt_to_hash(&contract_hash_felt);
 
+
                         self.starknet_state
                             .lock()
                             .map(|mut state| {
-                                state
-                                    .set_contract_class(&contract_hash, &contract_class)
-                                    .unwrap()
+                                
+                                // declare tx
+                                let internal_declare = InternalDeclare::new(
+                                    contract_class,
+                                    Felt252::zero(),
+                                    Address(Felt252::one()),
+                                    0,
+                                    1,
+                                    Vec::new(),
+                                    Felt252::zero(),
+                                )
+                                .unwrap();
+
+                                
+
+                                let _ = internal_declare.execute(&mut (*state), &self.config).unwrap();
                             })
                             .unwrap();
 
@@ -207,6 +228,7 @@ impl Application for StarknetApp {
                             Some(vec) => vec.iter().map(|&n| n.into()).collect(),
                             None => Vec::new(),
                         };
+
                         let address = calculate_contract_address(
                             &Address(salt.into()),
                             &Felt252::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
@@ -216,13 +238,34 @@ impl Application for StarknetApp {
                         .unwrap();
 
                         let _ = self.starknet_state.lock().map(|mut state| {
-                            // let class = state
-                            //     .get_contract_class(&felt_to_hash(&address.clone()))
-                            //     .unwrap();
-                            state.deploy_contract(
-                                Address(address.clone()),
-                                string_to_hash(&class_hash),
-                            )
+                             let class = state
+                                 .get_contract_class(&felt_to_hash(&Felt252::from_str_radix(&class_hash[2..], 16).unwrap()))
+                                 .unwrap();
+
+                                let class_hash_bytes = felt_to_hash(&compute_class_hash(&class).unwrap());
+
+                                info!("Contract class found for declare");
+                                let salt = Address(salt.into());
+
+                                let constructor_calldata = match &inputs {
+                                    Some(vec) => vec.iter().map(|&n| n.into()).collect(),
+                                    None => Vec::new(),
+                                };
+
+                                let internal_deploy =
+                                InternalDeployAccount::new(class_hash_bytes, 0, 0,Felt252::zero(), constructor_calldata.clone(), vec![], salt.clone(), StarknetChainId::TestNet2).unwrap();
+                                
+                                // This is a hack to validate the contract address because it is not public in the API
+                                let contract_address = Address(calculate_contract_address(
+                                    &salt,
+                                    &Felt252::from_str_radix(&class_hash[2..], 16).unwrap(),
+                                    &constructor_calldata,
+                                    Address(Felt252::zero()),
+                                ).unwrap());
+
+                                info!("Contract address: {:?}", contract_address);
+
+                                internal_deploy.execute(&mut state.clone(), &self.config).unwrap();
                         });
 
                         let tx_hash = calculate_deploy_transaction_hash(
@@ -234,33 +277,27 @@ impl Application for StarknetApp {
                         .unwrap();
 
                         info!(
-                            "Deployed tx_id {}, Address: {}, tx_hash: {}",
-                            tx.id, address, tx_hash
+                            "Deployed tx_id {}, Address: 0x{}, tx_hash: {}",
+                            tx.id, hex::encode(felt_to_hash(&address)), tx_hash
                         );
                     }
                     TransactionType::Invoke {
                         address,
-                        abi,
                         function,
                         inputs,
-                    } => match self.run_invoke_tx(&address, &abi, &function, &inputs) {
+                    } => match self.run_invoke_tx(&address, &function, &inputs) {
                         Ok(result) => {
                             info!(
-                                    "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
-                                    tx.id,
-                                    address,
-                                    abi.display(),
-                                    function,
-                                    inputs,
-                                );
+                                "Invoked tx_id {}, Address: {}, function: {}, inputs: {:?}",
+                                tx.id, address, function, inputs,
+                            );
                             info!("Result: {:?}", result)
                         }
                         Err(error) => {
                             info!(
-                                    "Invoke failed for tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                                    "Invoke failed for tx_id {}, Address: {}, function: {}, inputs: {:?}",
                                     tx.id,
                                     address,
-                                    abi.display(),
                                     function,
                                     inputs,
                                 );
@@ -394,9 +431,6 @@ impl Application for StarknetApp {
 impl StarknetApp {
     /// Constructor.
     pub fn new() -> Self {
-        let mut state = CachedState::new(InMemoryStateReader::default(), Some(HashMap::new()));
-
-        state.set_contract_classes(Default::default()).unwrap();
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
             starknet_state: Arc::new(Mutex::new(CachedState::new(
@@ -418,47 +452,44 @@ impl StarknetApp {
     fn run_invoke_tx(
         &self,
         address: &String,
-        abi: &PathBuf,
         function: &String,
         inputs: &Option<Vec<i32>>,
     ) -> Result<TransactionExecutionInfo> {
-        let contract_address = Address(
-            Felt252::from_str_radix(&address[2..], 16)
-                .map_err(|_| anyhow!("Could not parse address: {}", address))?,
-        );
-        let calldata = match &inputs {
+        let contract_address = Felt252::from_str_radix(&address[2..], 16)
+            .map_err(|_| anyhow!("Could not parse address: {}", address))?;
+
+        let calldata: Vec<Felt252> = match &inputs {
             Some(vec) => vec.iter().map(|&n| n.into()).collect(),
             None => Vec::new(),
         };
+
         let result = self.starknet_state.lock().map(|mut state| {
-            let class_hash = *state.get_class_hash_at(&contract_address).unwrap();
-            let contract_class = state
-                .get_contract_class(&class_hash)
-                .map_err(|_| anyhow!("No contract class found for class hash: {:?}", &class_hash))
+            let class_hash = *state
+                .get_class_hash_at(&Address(contract_address.clone()))
                 .unwrap();
 
-            let function_entrypoint_indexes = read_abi(abi);
+            info!("Found class_hash; {:?}", class_hash);
+            // check if contract exists by attempting to retrieve contract class
 
-            let entry_points_by_type = contract_class.entry_points_by_type().clone();
-            let (entry_point_index, entry_point_type) = function_entrypoint_indexes
-                .get(function)
-                .ok_or_else(|| ParserError::FunctionEntryPoint(function.clone()))
-                .unwrap();
+            //let _contract_class = state
+            //    .get_contract_class(&class_hash)
+            //    .map_err(|_| anyhow!("No contract class found for class hash: {:?}", &class_hash))
+            //    .unwrap();
 
-            let entry_point_selector = entry_points_by_type
-                .get(entry_point_type)
-                .ok_or(ParserError::EntryPointType(*entry_point_type))
-                .unwrap()
-                .get(*entry_point_index)
-                .ok_or(ParserError::EntryPointIndex(*entry_point_index))
-                .unwrap()
-                .selector()
-                .clone();
+            let entrypoint_selector =
+                Felt252::from_bytes_be(&calculate_sn_keccak(function.as_bytes()));
+            //
+            //let calldata = vec![
+            //    contract_address, // CONTRACT_ADDRESS
+            //    Felt252::from_bytes_be(&calculate_sn_keccak(b"return_result")), // CONTRACT FUNCTION SELECTOR
+            //    Felt252::from(1),                                               // CONTRACT_CALLDATA LEN
+            //    Felt252::from(2),                                               // CONTRACT_CALLDATA
+            //];
 
             let tx = InternalInvokeFunction::new(
-                contract_address,
-                entry_point_selector,
-                0,
+                Address(contract_address),
+                entrypoint_selector,
+                2,
                 calldata,
                 vec![],
                 0.into(),

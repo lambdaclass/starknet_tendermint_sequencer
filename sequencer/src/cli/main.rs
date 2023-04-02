@@ -52,7 +52,6 @@ pub struct DeclareArgs {
 
 #[derive(Args)]
 pub struct DeployArgs {
-    #[arg(long = "class_hash")]
     class_hash: String,
     // TODO: randomize salt by default?
     #[arg(long, default_value = "1111")]
@@ -66,10 +65,6 @@ pub struct InvokeArgs {
     /// Contract Address
     #[clap(short, long)]
     address: String,
-
-    /// ABI
-    #[clap(long)]
-    abi: PathBuf,
 
     /// Function name
     #[clap(short, long)]
@@ -108,19 +103,19 @@ async fn main() {
     };
 
     let (code, output) = match result {
-        Ok(output) => (0, json!(output)),
+        Ok(output) => (0, json!({"id": output.id,"hash": output.transaction_hash})),
         Err(err) => (1, json!({"error": err.to_string()})),
     };
 
-    println!("{output:#}");
+    println!("\n{output:#}");
     std::process::exit(code);
 }
 
 async fn do_declare(args: DeclareArgs, url: &str) -> Result<Transaction> {
-    let program = fs::read_to_string(args.contract).unwrap();
+    let program = fs::read_to_string(args.contract)?;
     let transaction_type = TransactionType::Declare { program };
-    let transaction = Transaction::with_type(transaction_type).unwrap();
-    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    let transaction = Transaction::with_type(transaction_type)?;
+    let transaction_serialized = bincode::serialize(&transaction)?;
 
     match tendermint::broadcast(transaction_serialized, url).await {
         Ok(_) => Ok(transaction),
@@ -135,8 +130,8 @@ async fn do_deploy(args: DeployArgs, url: &str) -> Result<Transaction> {
         inputs: args.inputs,
     };
 
-    let transaction = Transaction::with_type(transaction_type).unwrap();
-    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    let transaction = Transaction::with_type(transaction_type)?;
+    let transaction_serialized = bincode::serialize(&transaction)?;
 
     match tendermint::broadcast(transaction_serialized, url).await {
         Ok(_) => Ok(transaction),
@@ -147,13 +142,12 @@ async fn do_deploy(args: DeployArgs, url: &str) -> Result<Transaction> {
 async fn do_invoke(args: InvokeArgs, url: &str) -> Result<Transaction> {
     let transaction_type = TransactionType::Invoke {
         address: args.address,
-        abi: args.abi,
         function: args.function,
         inputs: args.inputs,
     };
 
-    let transaction = Transaction::with_type(transaction_type).unwrap();
-    let transaction_serialized = bincode::serialize(&transaction).unwrap();
+    let transaction = Transaction::with_type(transaction_type)?;
+    let transaction_serialized = bincode::serialize(&transaction)?;
 
     match broadcast(transaction_serialized, url).await {
         Ok(_) => Ok(transaction),
