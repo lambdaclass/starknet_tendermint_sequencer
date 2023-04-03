@@ -86,15 +86,18 @@ impl TransactionType {
                     Address(Felt252::zero()), // TODO: Deployer address is hardcoded to 0 in starknet-in-rust, ask why
                 )?;
 
-                Ok(format!("{}{}", "0x", hex::encode(contract_address.to_bytes_be())))
+                Ok(format!(
+                    "{}{}",
+                    "0x",
+                    hex::encode(contract_address.to_bytes_be())
+                ))
             }
             TransactionType::Invoke {
                 address,
                 function,
                 inputs,
             } => Ok(format!(
-                "Invoked {} with inputs {:?} for contract in address {}",
-                function, inputs, address
+                "Invoked {function} with inputs {inputs:?} for contract in address {address}"
             )),
         }
     }
