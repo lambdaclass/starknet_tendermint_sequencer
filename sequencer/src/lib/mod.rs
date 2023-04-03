@@ -1,18 +1,18 @@
 use anyhow::{ensure, Result};
-use num_traits::Num;
+use felt::Felt252;
+use num_traits::{Num, Zero};
 use serde::{Deserialize, Serialize};
 use starknet_rs::{
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
     utils::Address,
 };
-use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Transaction {
-    pub id: String,
-    pub transaction_hash: String, // this acts
     pub transaction_type: TransactionType,
+    pub transaction_hash: String,
+    pub id: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -30,7 +30,6 @@ pub enum TransactionType {
     /// Execute a function from a deployed contract.
     Invoke {
         address: String,
-        abi: PathBuf,
         function: String,
         inputs: Option<Vec<i32>>,
     },
@@ -61,11 +60,14 @@ impl TransactionType {
     pub fn compute_and_hash(&self) -> Result<String> {
         match self {
             TransactionType::Declare { program } => {
-                let contract_class = ContractClass::try_from(program.as_str())
-                    .expect("Could not load contract from JSON");
+                let contract_class = ContractClass::try_from(program.as_str())?;
                 // This function requires cairo_programs/contracts.json to exist as it uses that cairo program to compute the hash
-                let contract_hash = starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash(&contract_class).unwrap();
-                Ok(hex::encode(contract_hash.to_bytes_be()))
+                let contract_hash = starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash(&contract_class)?;
+                Ok(format!(
+                    "{}{}",
+                    "0x",
+                    hex::encode(contract_hash.to_bytes_be())
+                ))
             }
             TransactionType::DeployAccount {
                 class_hash,
@@ -77,22 +79,26 @@ impl TransactionType {
                     None => Vec::new(),
                 };
 
-                let address = calculate_contract_address(
+                let contract_address = calculate_contract_address(
                     &Address((*salt).into()),
                     &felt::Felt252::from_str_radix(&class_hash[2..], 16).unwrap(), // TODO: Handle these errors better
                     &constructor_calldata,
-                    Address(0.into()),
-                )
-                .unwrap();
+                    Address(Felt252::zero()), // TODO: Deployer address is hardcoded to 0 in starknet-in-rust, ask why
+                )?;
 
-                Ok(hex::encode(address.to_bytes_be()))
+                Ok(format!(
+                    "{}{}",
+                    "0x",
+                    hex::encode(contract_address.to_bytes_be())
+                ))
             }
             TransactionType::Invoke {
-                address: _,
-                abi: _,
-                function: _,
-                inputs: _,
-            } => Ok("Not yet implmented - working on it".to_owned()),
+                address,
+                function,
+                inputs,
+            } => Ok(format!(
+                "Invoked {function} with inputs {inputs:?} for contract in address {address}"
+            )),
         }
     }
 }

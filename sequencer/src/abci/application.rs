@@ -1,3 +1,4 @@
+use anyhow::bail;
 use anyhow::{anyhow, Result};
 use felt::Felt252;
 use lib::{Transaction, TransactionType};
@@ -5,18 +6,23 @@ use num_traits::Num;
 use num_traits::Zero;
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
-use starknet_rs::business_logic::execution::objects::TransactionExecutionInfo;
+use starknet_rs::business_logic::execution::execution_entry_point::ExecutionEntryPoint;
+use starknet_rs::business_logic::execution::objects::CallInfo;
+use starknet_rs::business_logic::execution::objects::CallType;
+use starknet_rs::business_logic::execution::objects::TransactionExecutionContext;
+
+use starknet_rs::business_logic::fact_state::state::ExecutionResourcesManager;
 use starknet_rs::business_logic::state::state_api::State;
 use starknet_rs::business_logic::state::state_api::StateReader;
-use starknet_rs::business_logic::transaction::objects::internal_invoke_function::InternalInvokeFunction;
-use starknet_rs::business_logic::transaction::transactions::Transaction as StarknetTransaction;
+
 use starknet_rs::business_logic::{
     fact_state::in_memory_state_reader::InMemoryStateReader, state::cached_state::CachedState,
 };
 use starknet_rs::core::contract_address::starknet_contract_address::compute_class_hash;
 use starknet_rs::definitions::general_config::StarknetGeneralConfig;
-use starknet_rs::parser_errors::ParserError;
-use starknet_rs::serde_structs::contract_abi::read_abi;
+
+use starknet_rs::services::api::contract_class::EntryPointType;
+
 use starknet_rs::utils::felt_to_hash;
 use starknet_rs::utils::string_to_hash;
 use starknet_rs::utils::Address;
@@ -24,7 +30,8 @@ use starknet_rs::{
     core::transaction_hash::starknet_transaction_hash::calculate_deploy_transaction_hash,
     hash_utils::calculate_contract_address, services::api::contract_class::ContractClass,
 };
-use std::path::PathBuf;
+use tracing::log::warn;
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -240,31 +247,25 @@ impl Application for StarknetApp {
                     }
                     TransactionType::Invoke {
                         address,
-                        abi,
                         function,
                         inputs,
-                    } => match self.run_invoke_tx(&address, &abi, &function, &inputs) {
+                    } => match self.run_invoke_tx(&address, &function, &inputs) {
                         Ok(result) => {
                             info!(
-                                    "Invoked tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
-                                    tx.id,
-                                    address,
-                                    abi.display(),
-                                    function,
-                                    inputs,
-                                );
+                                "Invoked tx_id {}, Address: {}, function: {}, inputs: {:?}",
+                                tx.id, address, function, inputs,
+                            );
                             info!("Result: {:?}", result)
                         }
                         Err(error) => {
-                            info!(
-                                    "Invoke failed for tx_id {}, Address: {}, abi: {}, function: {}, inputs: {:?}",
+                            warn!(
+                                    "Invoke failed for tx_id {}, Address: {}, function: {}, inputs: {:?}",
                                     tx.id,
                                     address,
-                                    abi.display(),
                                     function,
                                     inputs,
                                 );
-                            info!("Error: {:?}", error)
+                            warn!("Error: {:?}", error)
                         }
                     },
                 }
@@ -394,9 +395,6 @@ impl Application for StarknetApp {
 impl StarknetApp {
     /// Constructor.
     pub fn new() -> Self {
-        let mut state = CachedState::new(InMemoryStateReader::default(), Some(HashMap::new()));
-
-        state.set_contract_classes(Default::default()).unwrap();
         let new_state = Self {
             hasher: Arc::new(Mutex::new(Sha256::new())),
             starknet_state: Arc::new(Mutex::new(CachedState::new(
@@ -418,61 +416,65 @@ impl StarknetApp {
     fn run_invoke_tx(
         &self,
         address: &String,
-        abi: &PathBuf,
         function: &String,
         inputs: &Option<Vec<i32>>,
-    ) -> Result<TransactionExecutionInfo> {
-        let contract_address = Address(
-            Felt252::from_str_radix(&address[2..], 16)
-                .map_err(|_| anyhow!("Could not parse address: {}", address))?,
-        );
-        let calldata = match &inputs {
+    ) -> Result<CallInfo> {
+        let contract_address = Felt252::from_str_radix(&address[2..], 16)
+            .map_err(|_| anyhow!("Could not parse address: {}", address))?;
+
+        let calldata: Vec<Felt252> = match &inputs {
             Some(vec) => vec.iter().map(|&n| n.into()).collect(),
             None => Vec::new(),
         };
-        let result = self.starknet_state.lock().map(|mut state| {
-            let class_hash = *state.get_class_hash_at(&contract_address).unwrap();
-            let contract_class = state
-                .get_contract_class(&class_hash)
-                .map_err(|_| anyhow!("No contract class found for class hash: {:?}", &class_hash))
-                .unwrap();
 
-            let function_entrypoint_indexes = read_abi(abi);
+        let result = self
+            .starknet_state
+            .lock()
+            .map(|mut state| {
+                let class_hash = *state
+                    .get_class_hash_at(&Address(contract_address.clone()))
+                    .unwrap();
 
-            let entry_points_by_type = contract_class.entry_points_by_type().clone();
-            let (entry_point_index, entry_point_type) = function_entrypoint_indexes
-                .get(function)
-                .ok_or_else(|| ParserError::FunctionEntryPoint(function.clone()))
-                .unwrap();
+                // check if contract exists by attempting to retrieve contract class
 
-            let entry_point_selector = entry_points_by_type
-                .get(entry_point_type)
-                .ok_or(ParserError::EntryPointType(*entry_point_type))
-                .unwrap()
-                .get(*entry_point_index)
-                .ok_or(ParserError::EntryPointIndex(*entry_point_index))
-                .unwrap()
-                .selector()
-                .clone();
+                if state.get_contract_class(&class_hash).is_err() {
+                    bail!("No contract class found for contract address (Contract not deployed)");
+                }
 
-            let tx = InternalInvokeFunction::new(
-                contract_address,
-                entry_point_selector,
-                0,
-                calldata,
-                vec![],
-                0.into(),
-                Some(0.into()),
-            )
+                let entry_point = ExecutionEntryPoint::new(
+                    Address(contract_address.clone()),
+                    calldata,
+                    Felt252::from_bytes_be(&starknet_rs::utils::calculate_sn_keccak(
+                        function.as_bytes(),
+                    )),
+                    Address(0.into()),
+                    EntryPointType::External,
+                    Some(CallType::Delegate),
+                    class_hash.into(),
+                );
+
+                let tx_execution_context = TransactionExecutionContext::create_for_testing(
+                    Address(0.into()),
+                    10,
+                    0.into(),
+                    self.config.invoke_tx_max_n_steps(),
+                    1,
+                );
+
+                let mut resources_manager = ExecutionResourcesManager::default();
+
+                entry_point
+                    .execute(
+                        &mut state.clone(),
+                        &self.config,
+                        &mut resources_manager,
+                        &tx_execution_context,
+                    )
+                    .map_err(|_| anyhow!("Error running Invoke Tx"))
+            })
             .unwrap();
 
-            let tx = StarknetTransaction::InvokeFunction(tx);
-            let mut state = state.clone();
-
-            tx.execute(&mut state, &self.config).unwrap()
-        });
-
-        result.map_err(|_| anyhow!("Error running invoke_tx"))
+        result
     }
 }
 
